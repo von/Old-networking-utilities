@@ -14,9 +14,14 @@ To use the \fInetlog\fR library the header file \fInetlog.h\fR must be
 included in all the source code one is interested in analysising and
 the library \fIlibnetlog.a\fR must be linked in.
 .SH LOGGING
-By default \fIlibnetlog.a\fR will log network activity in ./net.log.
-This can be changed through the use of the NETLOGFILE environment
-variable.
+By default \fIlibnetlog.a\fR will log network activity in a file
+called "./netlog.<hostname>.<pid>", where <hostname> is the hostname of
+the host the process is running on and <pid> is it's process id. This
+can be changed through the use of the NETLOGFILE environment variable.
+.PP
+When used in conjunction with the \fIloggerd\fR daemon, the logging can also
+be done to a remote machine. See the description of the NETLOGFILE
+environment variable later in this document for details.
 .PP
 \fIlibnetlog.a\fR tries to be intelligent and only log calls that are
 actually acting on sockets (as opposed to files or pipes). It does this
@@ -66,7 +71,10 @@ and read.
 .SH ENVIRONMENT VARIABLES
 .TP 15
 .SB NETLOGFILE
-If set, its value overrides the default log file name, ./net.log.
+This variable may be used to specify the destination of the logging
+information. Either a file or a socket connection to a loggerd daemon
+may be specified. See the section on LOGFILE SPECIFICATION below for
+details.
 .TP
 .SB NETLOGFLUSH
 If set, this causes \fIlibnetlog.a\fR to flush the logfile to disk
@@ -74,6 +82,47 @@ after every entry. This can cause a larger performance hit, but can
 help make sure all entries are written out if the application is
 crashing.
 .PD
+.SH LOGFILE SPECIFICATION
+.PP
+To log to a file on the local filesystem format of the NETLOGFILE variable
+should be:
+.in+5
+ "file:<filename>"
+.fi
+.PP
+This will create (or append to, if the file already exists) a file in the
+local filesystem and store the logging information in that file. By default
+a filename of "netlog.%h.%p" will be used.
+.PP
+Characters preceded by a percent are expnaded at runtime into the following:
+.nf
+.in +5
+%h     hostname
+%p     process id
+%u     user id
+.fi
+.PP
+For a connection to a loggerd daemon the format of the NETLOGFILE variable
+should be:
+.in +5
+ "socket:<filename>:<hostname>:<port>"
+.fi
+.PP
+All arguments are optional. If not specified they default to the following:
+.nf
+.in +5
+filename       netlog.%h.%p
+hostname       localhost
+port           5555
+.fi
+.PP
+\fIloggerd\fR will log the file on it's local filesystem. \fINOTE:\fR for security
+reasons \fIloggerd\fR will only create files in it's current directory. Any path
+in the filename will be stripped by the daemon.
+.PD
+.SH LOGGERD
+Currently \fIloggerd\fR is in fairly crude form. It supports no command line
+options and will spit any error messages to standard error.
 .SH SUPPORTED CALLS
 .BR accept(),
 .BR bind(),
@@ -100,18 +149,21 @@ to write to the log file) it will output an explanation to standard error and
 call exit() with a value of 1.
 .SH AUTHOR
 Von Welch (vwelch@ncsa.uiuc.edu), National Center for Supercomputing
-Applications
+Applications, University of Illinois
 .SH BUGS
 No doubt. Send reports to vwelch@ncsa.uiuc.edu
 .SH FILES
 .PD 0
 .TP 30
-.B ./net.log
-Default log file name.
+.B ./netlog.*
+Default netlog log files.
 .TP
 .B netlog.h
 Header file to be included in source code.
 .TP
 .B libnetlog.a
 netlog library file.
+.TP
+.B loggerd
+netlog remote logging daemon.
 .TP

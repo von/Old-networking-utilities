@@ -14,11 +14,17 @@ HDRS	=	logger.h support.h timer.h
 TARFILE	=	netlog.tar
 
 
+all:	$(LIBRARY) loggerd
+
 $(LIBRARY):	$(OBJS)
 	ar cr $(LIBRARY) `lorder $(OBJS) | tsort`
 	ranlib $(LIBRARY)
 
+loggerd:	loggerd.o
+	cc -o loggerd loggerd.o
+
 logger.o:	logger.c logger.h timer.h
+loggerd.o:	loggerd.c logger.h
 misc_rtns.o:	misc_rtns.c logger.h support.h
 read_rtns.o:	read_rtns.c logger.h support.h timer.h
 support.o:	support.c support.h

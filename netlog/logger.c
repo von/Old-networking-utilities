@@ -15,7 +15,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <netdb.h>
+#include <arpa/inet.h>
 #include <sys/param.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+
 
 
 #define TIMESTAMP_FORMAT	"%6.3f"
@@ -24,6 +30,7 @@
 #define	LOG_FORMAT		"%s [%2d] %-15s : %s\n"
 #define LOG_CONT_FORMAT		"%29s : %s\n", ""
 #define LOG_COMMENT_FORMAT	"%s      COMMENT         : %s\n"
+#define LOGFILE_NAME_FORMAT	"%s:%s"
 
 
 
@@ -62,6 +69,34 @@ char *function_name[] = {
 			""
 	};
 
+
+/* Logfile Types */
+#define	TYPE_FILE			0
+#define	TYPE_SOCKET		1
+
+
+struct socket_description {
+	char hostname[BUFFER_SIZE];
+	int port;
+};
+
+struct log_description {
+	int log_type;
+	struct socket_description sock;
+	char filename[BUFFER_SIZE];
+	
+};
+
+
+void netlog_comment();
+void exit_function();
+char *percent_expand();
+FILE *open_log_stream();
+struct log_description *parse_log_name();
+FILE *open_log_file();
+FILE *open_log_socket();
+
+
 /*
 	netlog(int socket_num, int function, char *message)
 
@@ -99,8 +134,8 @@ int netlog(socket_num, function,message)
 		break;
 	}
 
-	if (rc == EOF)
-		fatal_error("Couldn't write to log.");	/* Will not return */
+	if (rc < 0)
+		fatal_error("Couldn't output to log.");	/* Will not return */
 
 	if (flush)
 		fflush(log_file);
@@ -122,6 +157,7 @@ int netlog_initialize()
 {
 	char *log_filename, myhostname[MAXHOSTNAMELEN];
 
+
 	if (initialized++)
 		fatal_error("netlog_initialize() called twice.");
 		/* Will not return */
@@ -129,29 +165,27 @@ int netlog_initialize()
 	if ( (log_filename = getenv(FLUSH_VAR)) != NULL)
 		flush++;
 
-	/*	Try to set exit function if we can	*/
-#ifdef sun
-	on_exit(exit_function, NULL);
 
-#else 
-	/* Verified for sgi, cray and hp */
-
-	atexit(exit_function);
-#endif
 
 	if ( (log_filename = getenv(LOG_FILE_VAR)) == NULL)
 		log_filename = strdup(DEFAULT_LOG_FILE);
 
-	log_filename = parse_filename(log_filename);
+	/* Expand all the run-time percent codes */
+	log_filename = percent_expand(log_filename);
 
-	if ( (log_file = fopen(log_filename, "a")) == NULL) {
-		char *message;
 
-		message = (char *) malloc(30 + strlen(log_filename));
-		sprintf(message, "Couldn't open log file %s.", log_file);
+	log_file = open_log_stream(log_filename);
 
-		fatal_error(message);	/* Will not return */
-	}
+
+	/*	Try to set exit function if we can	*/
+
+#if !defined(USE_ON_EXIT)
+	atexit(exit_function);
+
+#else	/* SunOS 4.x doesn't have atexit() */
+
+	on_exit(exit_function, NULL);
+#endif
 
 	/* Get start timestamp */
 	start_timer(&time_zero);
@@ -160,11 +194,10 @@ int netlog_initialize()
 	if (gethostname(myhostname, MAXHOSTNAMELEN) == -1)
 		strcpy(myhostname, "Unknown Host");
 
-	if (fprintf(log_file, "\n***** NETLOG: VERSION %s START LOG\n",
-			NETLOG_VERSION) == EOF
-		|| fprintf(log_file, "***** NETLOG: %s %s\n\n",
-			myhostname, ctime(&(time_zero.tv_sec)))
-				== EOF)
+	if ((fprintf(log_file, "\n***** NETLOG: VERSION %s START LOG\n",
+			NETLOG_VERSION) < 0) ||
+	    (fprintf(log_file, "***** NETLOG: %s %s\n\n",
+			myhostname, ctime(&(time_zero.tv_sec)))	< 0))
 
 			fatal_error("Log header write failed.");
 				/* Will not return */
@@ -218,6 +251,9 @@ void netlog_comment(comment)
 */
 void exit_function()
 {
+	if (log_file == NULL)
+		return;
+
 	fprintf(log_file, "\n\n***** NETLOG: Wrote %ld bytes total.\n",
 		netlog_write_total());
 	fprintf(log_file, "***** NETLOG: Read %ld bytes total.\n",
@@ -232,7 +268,7 @@ void exit_function()
 
 
 /*
-	parse_filename()
+	percent_expand()
 
 	Parse the log filename replacing percent macros.
 */
@@ -240,7 +276,7 @@ void exit_function()
 #define REPLACE_LEN	256
 
 
-char *parse_filename(filename)
+char *percent_expand(filename)
 	char *filename;
 {
 	char *buffer, replace[REPLACE_LEN];
@@ -281,3 +317,235 @@ char *parse_filename(filename)
 
 	return buffer;
 }
+
+
+/*
+	open_log_stream()
+
+	Open the stream to be used for logging.
+*/
+
+FILE *open_log_stream(logfile_name)
+	char	*logfile_name;
+{
+	char	type_string[BUFFER_SIZE];
+	char	name[BUFFER_SIZE];
+
+	char	error_message[BUFFER_SIZE];
+
+	int	type;
+
+	FILE	*stream;
+
+	struct log_description	*desc;
+
+
+	desc = parse_log_name(logfile_name);
+
+	switch(desc->log_type) {
+
+  	case TYPE_FILE:
+		stream = open_log_file(desc);
+		break;
+
+	case TYPE_SOCKET:
+		stream = open_log_socket(desc);
+		break;
+	}
+
+	return stream;
+}
+
+
+
+/*
+        parse_log_name()
+
+	Parse the log file string and return a pointer to a description.
+*/
+struct log_description *parse_log_name(name)
+	char *name;
+{
+	char *type_string;
+	char *token;
+
+	struct log_description *desc;
+
+	char *tmp_ptr;
+
+	char	error_message[BUFFER_SIZE];
+
+
+	desc = malloc(sizeof(*desc));
+
+	if (desc == NULL) {
+		fatal_error("malloc() failed.\n");
+			/* Will not return */
+	}
+
+	type_string = strtok(name, ":");
+
+	if (type_string == NULL) {
+			/* Assume FILE */
+		desc->log_type = TYPE_FILE;
+		strcpy(desc->filename, DEFAULT_LOG_FILE);
+
+	} else if (strcmp(type_string, "file") == 0) {
+			/* FILE */
+
+		desc->log_type = TYPE_FILE;
+
+		token = strtok(NULL, ":");
+
+		if (token == NULL)
+			strcpy(desc->filename, DEFAULT_LOG_FILE);
+		else
+			strcpy(desc->filename, token);
+
+	} else if (strcmp(type_string, "socket") == 0) {
+			/* SOCKET */
+			/* Format is: "socket:<filename>:<hostname>:<port>" */
+
+		desc->log_type = TYPE_SOCKET;
+
+		token = strtok(NULL, ":");	/* Parse Filename */
+
+		if (token == NULL)
+			strcpy(desc->filename, DEFAULT_LOG_FILE);
+		else
+			strcpy(desc->filename, token);
+
+		token = strtok(NULL, ":");	/* Parse Hostname */
+
+		if (token == NULL)
+			strcpy(desc->sock.hostname, DEFAULT_LOG_HOST);
+		else
+			strcpy(desc->sock.hostname, token);
+
+		token = strtok(NULL, ":");	/* Parse port number */
+
+		if (token == NULL)
+			desc->sock.port = DEFAULT_SOCKET_PORT;
+		else
+			desc->sock.port = atoi(token);
+
+	}	else {
+
+		sprintf(error_message, "Unknown type field \"%s\".",
+			type_string);
+		fatal_error(error_message);	/* Will not return */
+	}
+
+		/* Parse filename */
+	tmp_ptr = percent_expand(desc->filename);
+	strcpy(desc->filename, tmp_ptr);
+	free(tmp_ptr);
+
+	return desc;
+}
+	
+		
+
+
+/*
+	open_log_file()
+
+	Return a stream to a log file on the local filesystem.
+
+	Format of the filename string is: <filename>
+*/
+
+FILE *open_log_file(desc)
+	struct log_description *desc;
+{
+	FILE *stream;
+
+	char	error_message[BUFFER_SIZE];
+
+
+	if ( (stream = fopen(desc->filename, "a")) == NULL) {
+		sprintf(error_message,
+			"Couldn't open log file \"%s\".", desc->filename);
+
+		fatal_error(error_message);	/* Will not return */
+	}
+
+	return stream;
+}
+
+	
+/*
+	open_log_socket()
+
+	Open a socket connection to a loggerd server.
+
+	Format of the name string is: :[<host>]:[<port>]:[<filename>]
+*/
+FILE *open_log_socket(desc)
+	struct log_description *desc;
+{
+	char	error_message[BUFFER_SIZE];
+
+	int sock;
+
+	FILE *stream;
+
+	struct sockaddr_in addr;
+
+	struct hostent *host_info;
+
+
+	bzero(addr, sizeof(addr));
+
+	host_info = gethostbyname(desc->sock.hostname);
+
+	if (host_info != NULL) {
+		addr.sin_family = host_info->h_addrtype;
+		bcopy(host_info->h_addr,
+		      (char *) &(addr.sin_addr),
+		      host_info->h_length);
+		addr.sin_port = htons(desc->sock.port);
+
+	} else {
+
+		sprintf(error_message,
+			"Could resolve hostname \"%s\".\n",
+			desc->sock.hostname);
+
+		fatal_error(error_message);	/* Will not return */
+	}
+
+	sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+
+	if (sock == -1)
+		fatal_error("socket() failed.\n");	/* Will not return */
+
+
+	if (connect(sock, &addr, sizeof(addr)) < 0) {
+		sprintf(error_message,
+			"Couldn't connect to \"%s\".\n",
+			desc->sock.hostname);
+
+		fatal_error(error_message);
+	}
+
+	if (sock == -1) {
+		sprintf(error_message,
+			"Couldn't connect to \"%s\" port %d.\n",
+			desc->sock.hostname, desc->sock.port);
+
+		fatal_error(error_message);	/* Will not return */
+	}
+
+	write(sock, desc->filename, BUFFER_SIZE);
+
+	stream = fdopen(sock, "w");
+
+	if (stream == NULL) {
+		fatal_error("fdopen() failed.\n"); /* Will not return */
+	}
+
+	return stream;
+}
+
+
