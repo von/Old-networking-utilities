@@ -1,0 +1,106 @@
+#!/usr/local/bin/perl
+###########################################################################
+#
+#	Parse output from hxa statistcs gathering.
+#
+#	usage: hxa.parse <options> <datafile>
+#		-w <window scale>
+#
+#	Assumes first packet seen is from source machine
+#
+#	Output goes to stdout and is meant for xgraph.
+#
+#	$Id: hxa.trace.parse,v 1.1 1995/03/09 16:22:55 vwelch Exp $
+#
+###########################################################################
+
+require 'getopts.pl';
+
+###########################################################################
+
+$WINSCALE = 0;
+
+$HEADER_SIZE = 48;
+
+$HIGH_SEQ = 0;
+$HIGH_ACKED = 0;
+
+###########################################################################
+
+&Getopts('w:');
+
+if (defined($opt_w)) {
+	$WINSCALE = $opt_w;
+}
+
+###########################################################################
+
+open(DATA_FILE, ">DATA") || die "Couldn't open data file.";
+printf DATA_FILE "\"Unacked data\n";
+
+open(WIN_FILE, ">WIN") || die "Couldn't open window file.";
+printf WIN_FILE "\"Window Size\n";
+
+while (<>) {
+	($TIMESTAMP, $SRC, $DST, $SIZE, $SEQ, $ACK, $WIN) =
+		split;
+
+	if (!defined($START_TIME)) {
+		$START_TIME = $TIMESTAMP;
+	}
+
+	$TIMESTAMP -= $START_TIME;
+
+	if (!defined($SRC_HOST)) {
+		$SRC_HOST = $SRC;
+		$DST_HOST = $DST;
+		print "TitleText: $SRC_HOST to $DST_HOST\n";
+		$HIGH_ACKED = $SEQ;
+	}
+
+	if ($SRC eq $SRC_HOST) {
+		# guessing...
+		$SENT = $SEQ + $SIZE - $HEADER_SIZE;
+		if ($SENT > $HIGH_SEQ) {
+			$HIGH_SEQ = $SENT;
+		}
+
+	} else {
+		if ($ACK > $HIGH_ACKED) {
+			$HIGH_ACKED = $ACK;
+		}
+		$WIN <<= $WINSCALE;
+		printf WIN_FILE "$TIMESTAMP $WIN\n";
+	}
+
+	$OUTSTANDING = $HIGH_SEQ - $HIGH_ACKED;
+	printf DATA_FILE "$TIMESTAMP $OUTSTANDING\n";
+}
+
+close DATA_FILE;
+close WIN_FILE;
+
+print "XUnitText: HXA Timestamp\n";
+print "YUnitText: Bytes\n\n";
+
+# Concatenate files and outp
+
+open(DATA_FILE, "<DATA") || die "Couldn't open data file.";
+
+while (<DATA_FILE>) {
+	print;
+	}
+
+close DATA_FILE;
+
+
+print "\n\n\n";
+
+open(WIN_FILE, "<WIN") || die "Could open window file.";
+
+while (<WIN_FILE>) {
+	print;
+}
+
+unlink "WIN";
+unlink "DATA";
