@@ -76,6 +76,12 @@ float	version = 1.0;
 # define DONT_DO_IP_TOS
 #endif
 
+#ifdef __bsdi__							/* BSDI */
+# define DONT_HAVE_MALLOC_H
+# define NEED_IN_SYSTM_H
+# define HZ_USE_SYSCONF
+# define NEED_UNISTD_H
+#endif
 
 
 #include <sys/types.h>
@@ -83,7 +89,11 @@ float	version = 1.0;
 #include <netdb.h>
 #include <netinet/in.h>
 #include <stdio.h>
+
+#ifndef DONT_HAVE_MALLOC_H
 #include <malloc.h>
+#endif
+
 #include <sys/times.h>
 #include <sys/param.h>
 
