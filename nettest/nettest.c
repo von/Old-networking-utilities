@@ -2,28 +2,22 @@
 static char USMID[] = "@(#)tcp/usr/etc/nettest/nettest.c	61.1	09/13/90 09:04:50";
 */
 
-char *version_str = "$Id: nettest.c,v 1.8 1995/06/29 18:09:42 vwelch Exp $";
+char *version_str = "$Id: nettest.c,v 1.9 1996/02/21 22:03:28 vwelch Exp $";
 
 #include "nettest.h"
 #include <stdlib.h>
 #include <string.h>
 #ifdef BSD44
-#include <machine/endian.h>
-#include <netinet/in_systm.h>
-#endif
-#ifdef sun	/* for solaris */
-#include <netinet/in_systm.h>
+# include <machine/endian.h>
+# include <netinet/in_systm.h>
 #endif
 #include <sys/un.h>
 #include <netinet/tcp.h>
-#if defined(RS6000) || defined(__convex__)
-#undef IP_TOS
-#endif
-#ifdef	IP_TOS
-#ifdef sgi
-#include <netinet/in_systm.h>
-#endif
-#include <netinet/ip.h>
+#ifdef	DO IP_TOS
+# ifdef NEED_IN_SYSTM_H
+#  include <netinet/in_systm.h>
+# endif
+# include <netinet/ip.h>
 #endif
 #ifdef __hpux
 # include <sys/resource.h>
@@ -198,7 +192,7 @@ char **argv;
 #endif
 			break;
 		case 't':
-#ifdef	IP_TOS
+#ifdef	DO_IP_TOS
 			if (strcmp(optarg, "lowdelay") == 0) {
 #ifdef IPTOS_LOWDELAY
 			  tos |= IPTOS_LOWDELAY;
@@ -327,13 +321,13 @@ char **argv;
 					hisname);
 				exit(1);
 			}
-#if	!defined(CRAY) || defined(s_addr)
+#if	defined(USE_S_ADDR)
 			name.d_inet.sin_addr.s_addr = tmp;
 #else
 			name.d_inet.sin_addr = tmp;
 #endif
 		} else {
-#if	!defined(CRAY) || defined(s_addr)
+#if	defined(USE_S_ADDR)
 			bcopy(hp->h_addr, (char *)&name.d_inet.sin_addr,
 							hp->h_length);
 #else
@@ -355,7 +349,7 @@ char **argv;
 		   if (setsockopt(s, SOL_SOCKET, SO_DEBUG,
 				  (char *) &on, sizeof(on)) < 0)
 			perror("setsockopt - SO_DEBUG");
-#ifdef	IP_TOS
+#ifdef	DO_IP_TOS
 		if (tos)
 		   if (setsockopt(s, IPPROTO_IP, IP_TOS,
 				  (char *) &tos, sizeof(tos)) < 0)
@@ -735,7 +729,7 @@ usage()
 	fprintf(stderr,
 "           -s <shift>		Set TCP window shift option\n");
 #endif
-#ifdef IP_TOS
+#ifdef DO_IP_TOS
 	fprintf(stderr,
 "           -t <service>	Use IP type of servis\n");
 #endif

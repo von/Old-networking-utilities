@@ -1,4 +1,4 @@
-char *version_str = "$Id: nettestd.c,v 1.8 1995/09/21 17:52:37 vwelch Exp $";
+char *version_str = "$Id: nettestd.c,v 1.9 1996/02/21 22:03:30 vwelch Exp $";
 
 #include "nettest.h"
 
@@ -6,13 +6,13 @@ char *version_str = "$Id: nettestd.c,v 1.8 1995/09/21 17:52:37 vwelch Exp $";
 #include <sys/errno.h>
 #include <signal.h>
 #ifdef	WAIT3CODE
-#include <sys/wait.h>
+# include <sys/wait.h>
 #endif
 #include <sys/un.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #ifdef	CRAY2
-#include <sys/sysmacros.h>
+# include <sys/sysmacros.h>
 #endif
 #include <netinet/tcp.h>
 
@@ -209,7 +209,7 @@ char **argv;
 			exit(1);
 		}
 		name.d_inet.sin_port = htons(port);
-#if	!defined(CRAY) || defined(s_addr)
+#if	defined(USE_S_ADDR)
 		name.d_inet.sin_addr.s_addr = 0;
 #else
 		name.d_inet.sin_addr = 0;

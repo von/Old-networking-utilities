@@ -5,7 +5,7 @@
 #
 #	Parse the output of multi_nettest
 #
-#	$Id: parse.nettest,v 1.8 1995/06/08 19:41:18 vwelch Exp $
+#	$Id: parse.nettest,v 1.9 1996/02/21 22:03:31 vwelch Exp $
 #
 ###########################################################################
 
@@ -164,12 +164,20 @@ while(<>) {
     }
 
     if (/^  write/) {
-	$WRITE_REAL_TIME{$BUFFER_SIZE} += substr($_, 7, 8);
-	$WRITE_SYS_TIME{$BUFFER_SIZE} += substr($_, 15, 8);
-	$WRITE_SYS_PERCENT{$BUFFER_SIZE} += substr($_, 25, 4);
-	$WRITE_USER_TIME{$BUFFER_SIZE} += substr($_, 31, 8);
-	$WRITE_USER_PERCENT{$BUFFER_SIZE} += substr($_, 41, 4);
-	$THROUGHPUT = substr($_, 56, 9);
+
+	s/\)//g;  # remove parens and % so we can split up the line cleanly
+	s/\(//g;
+	s/%//g;
+	($FLAK, $FLAK, 
+		$REAL_TIME, $SYS_TIME, $SYS_PERCENT, $USER_TIME, $USER_PERCENT, 
+		$FLAK, $THROUGHPUT) = split;
+
+	$WRITE_REAL_TIME{$BUFFER_SIZE} += $REAL_TIME;
+	$WRITE_SYS_TIME{$BUFFER_SIZE} += $SYS_TIME;
+	$WRITE_SYS_PERCENT{$BUFFER_SIZE} += $SYS_PERCENT;
+	$WRITE_USER_TIME{$BUFFER_SIZE} += $USER_TIME;
+	$WRITE_USER_PERCENT{$BUFFER_SIZE} += $USER_PERCENT;
+
 	$WRITE_THROUGHPUT{$BUFFER_SIZE} += $THROUGHPUT;
 	if ($THROUGHPUT > $WRITE_PEAK{$BUFFER_SIZE}) {
 	    $WRITE_PEAK{$BUFFER_SIZE} = $THROUGHPUT;
@@ -178,12 +186,20 @@ while(<>) {
     }
 
     if (/^   read/) {
-	$READ_REAL_TIME{$BUFFER_SIZE} += substr($_, 7, 8);
-	$READ_SYS_TIME{$BUFFER_SIZE} += substr($_, 15, 8);
-	$READ_SYS_PERCENT{$BUFFER_SIZE} += substr($_, 25, 4);
-	$READ_USER_TIME{$BUFFER_SIZE} += substr($_, 31, 8);
-	$READ_USER_PERCENT{$BUFFER_SIZE} += substr($_, 41, 4);
-	$THROUGHPUT = substr($_, 56, 9);
+
+	s/\)//g;  # remove parens and % so we can split up the line cleanly
+	s/\(//g;
+	s/%//g;
+	($FLAK, $FLAK, 
+		$REAL_TIME, $SYS_TIME, $SYS_PERCENT, $USER_TIME, $USER_PERCENT, 
+		$FLAK, $THROUGHPUT) = split;
+
+	$READ_REAL_TIME{$BUFFER_SIZE} += $REAL_TIME;
+	$READ_SYS_TIME{$BUFFER_SIZE} += $SYS_TIME;
+	$READ_SYS_PERCENT{$BUFFER_SIZE} += $SYS_PERCENT;
+	$READ_USER_TIME{$BUFFER_SIZE} += $USER_TIME;
+	$READ_USER_PERCENT{$BUFFER_SIZE} += $USER_PERCENT;
+
 	$READ_THROUGHPUT{$BUFFER_SIZE} += $THROUGHPUT;
 	if ($THROUGHPUT > $READ_PEAK{$BUFFER_SIZE}) {
 	    $READ_PEAK{$BUFFER_SIZE} = $THROUGHPUT;
