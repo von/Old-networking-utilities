@@ -7,7 +7,7 @@
  *	Assumes uptime output format of:
  *	 11:39am  up 19:34,  4 users,  load average: 0.44, 0.38, 0.08
  *
- *	$Id: get_load.c,v 1.3 1995/06/06 21:31:33 vwelch Exp $
+ *	$Id: get_load.c,v 1.4 1995/06/08 19:51:24 vwelch Exp $
  */
 
 #include <stdio.h>
@@ -32,6 +32,7 @@ static char	*uptime_args[] = { "uptime", NULL };
 #define BUFFER_SIZE	256
 
 
+#ifndef GET_LOAD_BROKEN
 
 float
 get_load()
@@ -69,3 +70,13 @@ get_load()
 
   return load;
 }
+
+#else /* GET_LOAD_BROKEN */
+
+float
+get_load()
+{
+  return -1;
+}
+
+#endif /* GET_LOAD_BROKEN */
