@@ -11,15 +11,20 @@
 #
 #	Written by vwelch@ncsa.uiuc.edu 2/28/95
 #
+#	$Date: 1995/03/01 20:28:37 $
+#
 ###########################################################################
 
 localhost=`hostname`
 
-total_data=`expr 60 \* 1024`
+kilobyte=1024
+megabyte=1048576
 
-repetitions=2
+total_data=`expr 60 \* $megabyte`
 
-buffer_sizes="1024 2048"
+repetitions=5
+
+buffer_sizes="1024 2048 4096 7168 8192 15360 16384 31744 32768 49152 58368 61440 65526 131072"
 
 nettest_cmd="nettest"
 
@@ -49,10 +54,10 @@ do
 		;;
 	r)	repetitions=$OPTARG
 		;;
-	t)	total_data=`expr $OPTARG \* 1024`
+	t)	total_data=`expr $OPTARG \* $kilobyte`
 		echo "Sending $total_data bytes total."
 		;;
-	T)	total_data=`expr $OPTARG \* 1024 \* 1024`
+	T)	total_data=`expr $OPTARG \* $megabyte`
 		echo "Sending $total_data bytes total."
 		;;
 	\?)	usage
@@ -114,7 +119,13 @@ echo >> $log_file
 for buffer_size in $buffer_sizes ; do
 	repetition=0
 
-	echo "Load average on $localhost:" >> $log_file
+	number_buffers=`expr $total_data / $buffer_size`
+
+	if [ $number_buffers -eq 0 ]; then
+		continue
+	fi
+
+	echo -n "Load average on $localhost:" >> $log_file
 	uptime >> $log_file
 	echo >> $log_file
 
@@ -125,9 +136,7 @@ for buffer_size in $buffer_sizes ; do
 
 		echo -n "."
 
-		number_buffers=`expr $total_data / $buffer_size`
-
-		 $nettest_cmd $host $number_buffers $buffer_size \
+		$nettest_cmd $host $number_buffers $buffer_size \
 			>>  $log_file
 
 		if [ $? -eq 1 ]; then
@@ -144,3 +153,4 @@ for buffer_size in $buffer_sizes ; do
 done
 
 echo "Finished." | tee -a $log_file
+
