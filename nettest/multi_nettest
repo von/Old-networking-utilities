@@ -13,7 +13,7 @@
 #
 #	Written by vwelch@ncsa.uiuc.edu 2/28/95
 #
-#	$Date: 1995/03/08 21:50:57 $
+#	$Date: 1995/06/06 21:29:29 $
 #
 ###########################################################################
 
@@ -99,7 +99,7 @@ host=$1
 shift
 
 if [ $# -gt 0 ]; then
-	echo "$0: ignoring extra arguments after \"$1\"."
+	echo "$0: ignoring extra arguments after \"$host\"."
 fi
 
 nettest_cmd=$nettest_path""$nettest_cmd" "$nettest_args;
