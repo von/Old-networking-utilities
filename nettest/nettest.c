@@ -2,7 +2,7 @@
 static char USMID[] = "@(#)tcp/usr/etc/nettest/nettest.c	61.1	09/13/90 09:04:50";
 */
 
-char *version = "$Id: nettest.c,v 1.4 1995/03/07 22:07:57 vwelch Exp $";
+char *version = "$Id: nettest.c,v 1.5 1995/03/08 21:51:51 vwelch Exp $";
 
 #include "nettest.h"
 #include <stdlib.h>
@@ -13,7 +13,7 @@ char *version = "$Id: nettest.c,v 1.4 1995/03/07 22:07:57 vwelch Exp $";
 #endif
 #include <sys/un.h>
 #include <netinet/tcp.h>
-#if defined(RS6000) || defined(sgi) || defined(__convex__)
+#if defined(RS6000) || defined(__convex__)
 #undef IP_TOS
 #endif
 #ifdef	IP_TOS
@@ -65,11 +65,11 @@ clock_t	times();
 #define	TIMETYPE	long
 #endif
 #ifdef	TCP_WINSHIFT
-int	winshift;
-int	usewinshift;
+int	winshift		= 0;
+int	usewinshift		= 0;
 #endif
-int	tos;
-int	maxchildren;
+int	tos			= 0;
+int	maxchildren		= 0;
 
 
 struct in_addr hisaddr;
@@ -88,9 +88,6 @@ char **argv;
 	int		namesize;
 	int		on = 1;
 	int		nconnections = 1;
-#ifdef	IP_TOS
-	struct tosent	*tp;
-#endif
 	extern char	*optarg;
 	extern int	optind;
 #ifdef TCP_MAXSEG
@@ -191,18 +188,32 @@ char **argv;
 			break;
 		case 't':
 #ifdef	IP_TOS
-			tp = gettosbyname(optarg);
-			if (tp == NULL)
-				fprintf(stderr, "Bad tos name: %s\n", *argv);
-			else
-
-				tos = tp->t_tos;
-
-			break;
+			if (strcmp(optarg, "lowdelay") == 0) {
+#ifdef IPTOS_LOWDELAY
+			  tos |= IPTOS_LOWDELAY;
+#else
+			  fprintf(stderr, "IPTOS_LOWDELAY not supported.\n");
+#endif
+			} else if (strcmp(optarg, "throughput") == 0) {
+#ifdef IPTOS_THROUGHPUT
+			  tos |= IPTOS_THROUGHPUT;
+#else
+			  fprintf(stderr, "IPTOS_THROUGHPUT not supported.\n");
+#endif
+			} else if (strcmp(optarg, "reliability") == 0) {
+#ifdef IPTOS_RELIABILITY
+			  tos |= IPTOS_RELIABILITY;
+#else
+			  fprintf(stderr, "IPTOS_THROUGHPUT not supported.\n");
+#endif
+			} else {
+			  tos = strtol(optarg, NULL, 0);
+			}
 #else
 			fprintf(stderr, "TOS (-s) option not supported\n");
 			usage();
 #endif
+			break;
 		case 'v':
 			printf("Version: %s\n", version);
 			exit(0);
@@ -533,8 +544,10 @@ register int in, out;
 	    printf("remote server: %s\n", daemon_message + 1);
 	}
 
-	if (daemon_status == 0)
+	if (daemon_status == 0) {
+	  fprintf(stderr, "Dying due to error on daemon.\n");
 	  exit(1);
+	}
 
 	if (do_load)
 	  printf("Remote system load: %8.2f\n", daemon_load);
