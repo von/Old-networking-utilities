@@ -28,8 +28,12 @@
 #define WAIT3CODE
 #endif /* CRAY */
 
-#ifdef sun
+#if defined(sun)
 extern malloc_t		valloc();
+#endif
+
+#if defined(__convex__)
+extern char		*valloc();
 #endif
 
 extern float get_load();

@@ -2,7 +2,7 @@
 static char USMID[] = "@(#)tcp/usr/etc/nettest/nettest.c	61.1	09/13/90 09:04:50";
 */
 
-char *version = "$Id: nettest.c,v 1.3 1995/03/04 21:32:31 vwelch Exp $";
+char *version = "$Id: nettest.c,v 1.4 1995/03/07 22:07:57 vwelch Exp $";
 
 #include "nettest.h"
 #include <stdlib.h>
@@ -301,7 +301,8 @@ char **argv;
 
 			tmp = inet_addr(hisname);
 			if (tmp == -1) {
-				fprintf(stderr, "no host entry fo %s\n", hisname);
+				fprintf(stderr, "no host entry for %s\n",
+					hisname);
 				exit(1);
 			}
 #if	!defined(CRAY) || defined(s_addr)
@@ -329,20 +330,24 @@ char **argv;
 			exit(1);
 		}
 		if (dflag)
-		   if (setsockopt(s, SOL_SOCKET, SO_DEBUG, &on, sizeof(on)) < 0)
+		   if (setsockopt(s, SOL_SOCKET, SO_DEBUG,
+				  (char *) &on, sizeof(on)) < 0)
 			perror("setsockopt - SO_DEBUG");
 #ifdef	IP_TOS
 		if (tos)
-		   if (setsockopt(s, IPPROTO_IP, IP_TOS, &tos, sizeof(tos)) < 0)
+		   if (setsockopt(s, IPPROTO_IP, IP_TOS,
+				  (char *) &tos, sizeof(tos)) < 0)
 			perror("setsockopt - IP_TOS");
 #endif
 		if (kbufsize) {
 #ifdef	SO_SNDBUF
-			if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, &kbufsize,
-							sizeof(kbufsize)) < 0)
+			if (setsockopt(s, SOL_SOCKET, SO_SNDBUF,
+				       (char *) &kbufsize,
+				       sizeof(kbufsize)) < 0)
 				perror("setsockopt - SO_SNDBUF");
-			if (setsockopt(s, SOL_SOCKET, SO_RCVBUF, &kbufsize,
-							sizeof(kbufsize)) < 0)
+			if (setsockopt(s, SOL_SOCKET, SO_RCVBUF,
+				       (char *) &kbufsize,
+				       sizeof(kbufsize)) < 0)
 				perror("setsockopt - SO_RCVBUF");
 #else	/* !SO_SNDBUF */
 			printf("-b: cannot set local buffer sizes\n");
@@ -352,11 +357,12 @@ char **argv;
 		if (usewinshift) {
 			int size;
 
-			if (setsockopt(s, IPPROTO_TCP, TCP_WINSHIFT, &winshift,
-							sizeof(winshift)) < 0)
+			if (setsockopt(s, IPPROTO_TCP, TCP_WINSHIFT, 
+				       (char *) &winshift,
+				       sizeof(winshift)) < 0)
 				perror("setsockopt - TCP_WINSHIFT");
-			if (getsockopt(s, IPPROTO_TCP, TCP_WINSHIFT, &winshift,
-							&size) < 0)
+			if (getsockopt(s, IPPROTO_TCP, TCP_WINSHIFT, 
+				       (char *) &winshift, &size) < 0)
 				perror("getsockopt - TCP_WINSHIFT");
 			else
 				printf("TCP_WINSHIFT = %d\n", winshift);
@@ -364,8 +370,9 @@ char **argv;
 #endif
 #ifdef	TCP_NODELAY
 		if (nodelay) {
-			if (setsockopt(s, IPPROTO_TCP, TCP_NODELAY, &nodelay,
-							sizeof(nodelay)) < 0)
+			if (setsockopt(s, IPPROTO_TCP, TCP_NODELAY, 
+				       (char *) &nodelay,
+				       sizeof(nodelay)) < 0)
 				perror("setsockopt - TCP_NODELAY");
 		}
 #endif
@@ -374,13 +381,13 @@ char **argv;
 			shutdown(s, 2);
 			exit(0);
 		}
-		if (connect(s, (char *)&name, namesize) < 0) {
+		if (connect(s, (struct sockaddr *) &name, namesize) < 0) {
 			perror("connect");
 			exit(1);
 		}
 #ifdef	TCP_MAXSEG
-		if (getsockopt(s, IPPROTO_TCP, TCP_MAXSEG, &maxseg,
-			       				&maxseglen) < 0)
+		if (getsockopt(s, IPPROTO_TCP, TCP_MAXSEG, 
+			       (char *) &maxseg, &maxseglen) < 0)
 		  	perror("getsockopt - TCPMAXSEG");
 		else
 		  	printf("TCP maximum segment size = %d bytes\n",
@@ -540,7 +547,7 @@ register int in, out;
 	data += buffer_alignment;
 
 	cnts = (long *)malloc((chunksize+1)*sizeof(long));
-	bzero(cnts, (chunksize+1)*sizeof(long));
+	bzero((char *) cnts, (chunksize+1)*sizeof(long));
 
 	if (checkdata)
 		for (cp = data, i = 0; i < chunksize; )
@@ -706,7 +713,9 @@ struct sockaddr_in *name;
 
 	*data = 0;
 	for (i = 0; i < nchunks; i++) {
-		if ((ret = sendto(s, data, chunksize, 0, name, sizeof(*name))) < 0) {
+		if ((ret = sendto(s, data, chunksize, 0,
+				  (struct sockaddr *) name,
+				  sizeof(*name))) < 0) {
 			perror("sendto");
 			printf("%d out of %d sent\n", i, nchunks);
 			exit(1);

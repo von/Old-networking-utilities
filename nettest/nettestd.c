@@ -1,4 +1,4 @@
-char *version = "$Id: nettestd.c,v 1.3 1995/03/04 21:32:37 vwelch Exp $";
+char *version = "$Id: nettestd.c,v 1.4 1995/03/07 22:08:02 vwelch Exp $";
 
 #include "nettest.h"
 
@@ -215,24 +215,28 @@ char **argv;
 			perror("socket");
 			exit(1);
 		}
-		if (dflag && setsockopt(s, SOL_SOCKET, SO_DEBUG, &on, sizeof(on)) < 0)
+		if (dflag && setsockopt(s, SOL_SOCKET, SO_DEBUG,
+					(char *) &on, sizeof(on)) < 0)
 			perror("setsockopt - SO_DEBUG");
-		setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
+		setsockopt(s, SOL_SOCKET, SO_REUSEADDR,
+			   (char *) &on, sizeof(on));
 
 		if (kbufsize) {
 #ifdef	SO_SNDBUF
-			if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, &kbufsize,
-							sizeof(kbufsize)) < 0)
+			if (setsockopt(s, SOL_SOCKET, SO_SNDBUF,
+				       (char *) &kbufsize,
+				       sizeof(kbufsize)) < 0)
 				perror("setsockopt - SO_SNDBUF");
-			if (setsockopt(s, SOL_SOCKET, SO_RCVBUF, &kbufsize,
-							sizeof(kbufsize)) < 0)
+			if (setsockopt(s, SOL_SOCKET, SO_RCVBUF,
+				       (char *) &kbufsize,
+				       sizeof(kbufsize)) < 0)
 				perror("setsockopt - SO_RCVBUF");
 #else	/* !SO_SNDBUF */
 			printf("-b: cannot set local buffer sizes\n");
 #endif	/* SO_SNDBUF */
 		}
 
-		if (bind(s, (char *)&name, namesize) < 0) {
+		if (bind(s, (struct sockaddr *) &name, namesize) < 0) {
 			perror("bind");
 			exit(1);
 		}
@@ -258,7 +262,7 @@ register int s;
 	signal(SIGCHLD, dochild);
 	for (;;) {
 		namesize = sizeof(name);
-		s2 = accept(s, (char *)&name, &namesize);
+		s2 = accept(s, (struct sockaddr *) &name, &namesize);
 		if (s2 < 0) {
 			extern int errno;
 			if (errno == EINTR)
@@ -327,23 +331,27 @@ register in, out;
 	    
 	if (kbufsize) {
 #ifdef	SO_SNDBUF
-		if ((setsockopt(out, SOL_SOCKET, SO_SNDBUF, &kbufsize,
-						sizeof(kbufsize)) < 0) ||
-		    (setsockopt(in, SOL_SOCKET, SO_RCVBUF, &kbufsize,
-						sizeof(kbufsize)) < 0))
+		if ((setsockopt(out, SOL_SOCKET, SO_SNDBUF,
+				(char *) &kbufsize,
+				sizeof(kbufsize)) < 0) ||
+		    (setsockopt(in, SOL_SOCKET, SO_RCVBUF,
+				(char *) &kbufsize,
+				sizeof(kbufsize)) < 0))
 #endif
 			strcat(buf, " Cannot set buffers sizes.");
 	}
 	if (tos) {
 #ifdef	IP_TOS
-		if (setsockopt(out, IPPROTO_IP, IP_TOS, &tos, sizeof(tos)) < 0)
+		if (setsockopt(out, IPPROTO_IP, IP_TOS,
+			       (char *) &tos, sizeof(tos)) < 0)
 #endif
 			strcat(buf, " Cannot set TOS bits.");
 	}
 	if (nodelay) {
 #ifdef	TCP_NODELAY
-		if (setsockopt(out, IPPROTO_TCP, TCP_NODELAY, &nodelay,
-							sizeof(nodelay)) < 0)
+		if (setsockopt(out, IPPROTO_TCP, TCP_NODELAY,
+			       (char *) &nodelay,
+			       sizeof(nodelay)) < 0)
 #endif
 			strcat(buf, " Cannot set TCP_NODELAY.");
 	}
@@ -419,7 +427,8 @@ int s;
 
 	for (;;) {
 		namesize = sizeof(name);
-		t = recvfrom(s, data, MAXSIZE, 0, (char *)&name, &namesize);
+		t = recvfrom(s, data, MAXSIZE, 0,
+			     (struct sockaddr *) &name, &namesize);
 		if (t < 0) {
 			perror("recvfrom");
 			continue;
