@@ -1,4 +1,4 @@
-static char USMID[] = "@(#)tcp/usr/etc/nettest/nettestd.c	61.1	09/13/90 09:04:50";
+char *version = "$Id: nettestd.c,v 1.2 1995/03/03 23:28:08 vwelch Exp $";
 
 #include "nettest.h"
 
@@ -38,7 +38,7 @@ void dochild()
 int dflag;
 #define	debug(x)	if(dflag>1)fprintf x
 
-int buffer_alignment;
+int buffer_alignment = 0;
 
 
 #define	D_PIPE	1
@@ -70,13 +70,8 @@ char **argv;
 	int		kbufsize = 0;
 
 
-	buffer_alignment = getpagesize();
-
-	while ((c = getopt(argc, argv, "A:b:p:d")) != EOF) {
+	while ((c = getopt(argc, argv, "b:p:dv")) != EOF) {
 		switch(c) {
-		case 'A':
-		  	buffer_alignment = atoval(optarg);
-			break;
 		case 'b':
 			kbufsize = atoval(optarg);
 			break;
@@ -104,6 +99,10 @@ char **argv;
 				usage();
 			}
 			break;
+
+		case 'v':
+			printf("Version: %s\n", version);
+			exit(0);
 
 		case '?':
 		default:
@@ -305,8 +304,8 @@ register in, out;
 			break;
 	}
 	*cp = '\0';
-	sscanf(buf, "%d %d %d %d %d %d", &chunks, &chunksize, &fullbuf,
-					&kbufsize, &tos, &nodelay);
+	sscanf(buf, "%d %d %d %d %d %d %d", &chunks, &chunksize, &fullbuf,
+	       &kbufsize, &tos, &nodelay, &buffer_alignment);
 	/*
 	 * If fullbuf is set, allocate a buffer twice as big.  This
 	 * is so that we can always read a full size buffer, from
@@ -314,12 +313,15 @@ register in, out;
 	 * the first chunksize consistent in case the remote side
 	 * is trying to verify the contents.
 	 */
-	data = memalign(buffer_alignment, fullbuf ? 2*chunksize : chunksize);
+	data = valloc((fullbuf ? 2*chunksize : chunksize) + buffer_alignment);
 	if (data == NULL) {
 		sprintf(buf, "0 malloc() failed\n");
 		write(out, buf, strlen(buf));
 		return(1);
 	}
+
+	data += buffer_alignment;
+
 	strcpy(buf, "1");
 	if (kbufsize) {
 #ifdef	SO_SNDBUF
@@ -406,12 +408,14 @@ int s;
 	struct sockaddr_in	name;
 	int			namesize;
 
-	data = memalign(buffer_alignment, MAXSIZE);
+	data = valloc(MAXSIZE + buffer_alignment);
 	if (data == NULL) {
 		fprintf(stderr, "no malloc\n");
 		shutdown(s, 2);
 		exit(1);
 	}
+	data += buffer_alignment;
+
 	for (;;) {
 		namesize = sizeof(name);
 		t = recvfrom(s, data, MAXSIZE, 0, (char *)&name, &namesize);

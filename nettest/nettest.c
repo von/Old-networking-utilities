@@ -1,4 +1,7 @@
 static char USMID[] = "@(#)tcp/usr/etc/nettest/nettest.c	61.1	09/13/90 09:04:50";
+
+char *version = "$Id: nettest.c,v 1.2 1995/03/03 23:28:02 vwelch Exp $";
+
 #include "nettest.h"
 #include <stdlib.h>
 #ifdef BSD44
@@ -40,6 +43,7 @@ int	hash = 0;
 int	fullbuf = 0;
 int	kbufsize = 0;
 int	nodelay = 0;
+int	buffer_alignment = 0;
 
 #define	D_PIPE	1
 #define	D_UNIX	2
@@ -62,7 +66,6 @@ int	usewinshift;
 #endif
 int	tos;
 int	maxchildren;
-int	buffer_alignment;
 
 
 struct in_addr hisaddr;
@@ -104,12 +107,15 @@ char **argv;
 	}
 #endif /* __hpux */	
 
-	buffer_alignment = getpagesize();
-	
-	while ((i = getopt(argc, argv, "A:b:cdfFhn:p:s:t:?")) != EOF) {
+	while ((i = getopt(argc, argv, "A:b:cdfFhn:p:s:t:v?")) != EOF) {
 		switch(i) {
 		case 'A':
-		  	buffer_alignment = atoval(optarg);
+		  	buffer_alignment = atoi(optarg);
+			if (buffer_alignment < 0) {
+			  fprintf(stderr,
+				  "Buffer alignment of %d illegal. Ignoring.\n");
+			  buffer_alignment = 0;
+			}
 			break;
 		case 'b':
 			kbufsize = atoval(optarg);
@@ -190,6 +196,9 @@ char **argv;
 			fprintf(stderr, "TOS (-s) option not supported\n");
 			usage();
 #endif
+		case 'v':
+			printf("Version: %s\n", version);
+			exit(0);
 
 		case '?':
 		default:
@@ -473,8 +482,8 @@ register int in, out;
 	struct tms	tms1, tms2, tms3;
 	TIMETYPE	start, turnaround, end;
 
-	sprintf(buf, "%d %d %d %d %d %d\n", nchunks, chunksize, fullbuf,
-		kbufsize, tos, nodelay);
+	sprintf(buf, "%d %d %d %d %d %d %d\n", nchunks, chunksize, fullbuf,
+		kbufsize, tos, nodelay, buffer_alignment);
 	if (write(out, buf, strlen(buf))  != strlen(buf)) {
 		perror("write1");
 		exit(1);
@@ -490,11 +499,13 @@ register int in, out;
 		printf("remote server: %s\n", &buf[1]);
 	if (i > 1 && buf[0] == '0')
 		exit(1);
-	data = memalign(buffer_alignment, chunksize);
+	data = valloc(chunksize + buffer_alignment);
 	if (data == NULL) {
 		fprintf(stderr, "cannot malloc enough space\n");
 		exit(1);
 	}
+	data += buffer_alignment;
+
 	cnts = (long *)malloc((chunksize+1)*sizeof(long));
 	bzero(cnts, (chunksize+1)*sizeof(long));
 
@@ -649,12 +660,14 @@ struct sockaddr_in *name;
 	struct tms	tms1, tms2, tms3;
 	TIMETYPE	start, turnaround, end;
 	
-	data = memalign(buffer_alignment, chunksize);
+	data = valloc(chunksize + buffer_alignment);
 
 	if (data == NULL) {
 		fprintf(stderr, "cannot malloc enough space\n");
 		exit(1);
 	}
+
+	data += buffer_alignment;
 
 	GETTIMES(start, tms1);
 

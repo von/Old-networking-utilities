@@ -29,5 +29,5 @@
 #endif /* CRAY */
 
 #ifdef sun
-extern malloc_t		memalign();
+extern malloc_t		valloc();
 #endif
