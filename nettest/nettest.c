@@ -2,7 +2,7 @@
 static char USMID[] = "@(#)tcp/usr/etc/nettest/nettest.c	61.1	09/13/90 09:04:50";
 */
 
-char *version_str = "$Id: nettest.c,v 1.9 1996/02/21 22:03:28 vwelch Exp $";
+char *version_str = "$Id: nettest.c,v 1.10 1996/02/28 20:35:04 vwelch Exp $";
 
 #include "nettest.h"
 #include <stdlib.h>
@@ -13,7 +13,7 @@ char *version_str = "$Id: nettest.c,v 1.9 1996/02/21 22:03:28 vwelch Exp $";
 #endif
 #include <sys/un.h>
 #include <netinet/tcp.h>
-#ifdef	DO IP_TOS
+#ifdef	DO_IP_TOS
 # ifdef NEED_IN_SYSTM_H
 #  include <netinet/in_systm.h>
 # endif
