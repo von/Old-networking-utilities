@@ -1,23 +1,82 @@
 /*
- *	$Id: nettest.h,v 1.9 1996/02/21 22:03:29 vwelch Exp $
+ *	nettest.h,v 1.9 1996/02/21 22:03:29 vwelch Exp
  */
 /* USMID @(#)tcp/usr/etc/nettest/nettest.h	61.0	09/03/90 19:11:52 */
 
 float	version = 1.0;
 
+/*
+ * Default Arguments
+ */
 #define	CHUNK	4096
 #define	NCHUNKS	100
 
-#if defined(sun) && (defined(__svr4__) || !defined(bsd))
-# define SOLARIS
-# define SYSV
+/*
+ * Default port and socket names
+ */
+#define	UNIXPORT	"un_socket"
+#define	PORTNUMBER	(IPPORT_RESERVED + 42)
+
+
+
+
+#ifdef CRAY								/* CRAY */
+# define DONT_HAVE_VALLOC
+/* # define DONT_USE_S_ADDR */
+# define HZ_USE_CLK_TCK
+# define NEED_TIME_H
+# ifdef CRAY2							/* CRAY2 */
+#  define NEED_SYS_SYSMACROS_H
+# endif
 #endif
 
-#if	defined(CRAY) || defined(SYSV) || defined(RS6000) || defined(sgi)
-# define USE_TIMES
-#else
+#ifdef RS6000							/* RS6000 */
+/* Nothing */
+#endif
+
+#ifdef sgi								/* SGI */
+# define SIGNAL_NEEDS_RESET
+# define NEED_IN_SYSTM_H
+#endif
+
+#ifdef __alpha							/* Dec Alpha */
+# define NEED_IN_SYSTM_H
+# define HZ_USE_SYSCONF
+# define NEED_UNISTD_H
+# define INADDR_TYPE	u_int
+#endif
+
+#ifdef __hpux							/* HP */
+# define SIGNAL_NEEDS_RESET
+# define DONT_PROTO_TIMES
+# define DONT_HAVE_GETDTABLESIZE
+# define DONT_HAVE_VALLOC
+# define NEED_SYS_RESOURCE_H
+#endif
+
+#ifdef sun								/* Sun */
+# if defined(__svr4__) || !defined(bsd)	/* Solaris */
+#  define NEED_IN_SYSTM_H
+# else									/* SunOS */
+/* Nothing */
+# endif
+/* SunOS or Solaris */
+# define VALLOC_TYPE	void
 # define USE_FTIME
 #endif
+
+#ifdef __convex__						/* Convex */
+# define VALLOC_TYPE	char
+# define DONT_DO_IP_TOS
+# define DONT_PROTO_TIMES
+# define HZ_USE_CLK_TCK
+#endif
+
+#ifdef RS6000							/* RS6000 */
+# define DONT_DO_IP_TOS
+#endif
+
+
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -26,54 +85,38 @@ float	version = 1.0;
 #include <stdio.h>
 #include <malloc.h>
 #include <sys/times.h>
-#ifdef USE_TIMES
-# include <sys/param.h>
-#else /* USE_FTIMES */
-# ifndef HZ
-#  define	HZ	60
-# endif
+#include <sys/param.h>
+
+#ifdef USE_FTIME
 # include <sys/timeb.h>
-#endif	/* USE_TIMES */
-
-#define	UNIXPORT	"un_socket"
-#define	PORTNUMBER	(IPPORT_RESERVED + 42)
-
-#if !defined(CRAY) && !defined(__hpux)
-# define WAIT3CODE
-#endif /* CRAY */
-
-#ifdef CRAY
-# define DONT_HAVE_VALLOC
 #endif
 
-#ifdef sgi
-# define SIGNAL_NEEDS_RESET
-#endif
+
 
 #ifdef DONT_HAVE_VALLOC
 # define	valloc(size)	malloc(size)
 #endif
 
-#if defined(sun)
-extern void		*valloc();
+#ifdef VALLOC_TYPE
+extern VALLOC_TYPE		*valloc();
 #endif
 
-#if defined(__convex__)
-extern char		*valloc();
-#endif
 
 extern float get_load();
 
-#if defined(sgi) || defined(SOLARIS)
-# define NEED_IN_SYSTM_H
+
+#if defined(IP_TOS) && !defined(DONT_DO_IP_TOS)
+# define DO_IP_TOS
 #endif
 
-#if defined(IP_TOS)
-# if !defined(RS6000) && !defined(__convex__) 
-#  define DO_IP_TOS
-# endif
-#endif
-
-#if !defined(CRAY) || defined(s_addr)
+#if !defined(DONT_USE_S_ADDR)
 # define USE_S_ADDR
+#endif
+
+#if !defined(INADDR_TYPE)
+# define INADDR_TYPE		long
+#endif
+
+#if !defined(INADDR_NONE)
+# define INADDR_NONE		-1
 #endif

@@ -2,39 +2,46 @@
 static char USMID[] = "@(#)tcp/usr/etc/nettest/nettest.c	61.1	09/13/90 09:04:50";
 */
 
-char *version_str = "$Id: nettest.c,v 1.10 1996/02/28 20:35:04 vwelch Exp $";
+char *version_str = "$Id: nettest.c,v 1.11 1996/03/24 17:05:44 vwelch Exp $";
 
 #include "nettest.h"
 #include <stdlib.h>
 #include <string.h>
+
 #ifdef BSD44
 # include <machine/endian.h>
 # include <netinet/in_systm.h>
 #endif
+
 #include <sys/un.h>
 #include <netinet/tcp.h>
+
 #ifdef	DO_IP_TOS
 # ifdef NEED_IN_SYSTM_H
 #  include <netinet/in_systm.h>
 # endif
 # include <netinet/ip.h>
 #endif
-#ifdef __hpux
+
+#ifdef NEED_SYS_RESOURCE_H
 # include <sys/resource.h>
 #endif
 
-#ifdef	CRAY
+#ifdef NEED_TIME_H
 # include <time.h>
-# ifndef HZ
-#  define HZ CLK_TCK
-# endif
 #endif
+
+#ifdef NEED_UNISTD_H
+# include <unistd.h>
+#endif
+
 
 union {
 	struct sockaddr		d_gen;
 	struct sockaddr_in	d_inet;
 	struct sockaddr_un	d_unix;
 } name;
+
 int	nchunks = NCHUNKS;
 int	chunksize = CHUNK;
 int	dflag = 0;
@@ -51,21 +58,34 @@ int	do_load = 0;
 #define	D_INET	3
 #define	D_FILE	4
 
-#if !defined(__hpux) && !defined(__convex__)
+#if !defined(DONT_PROTO_TIMES)
 clock_t	times();
 #endif
+
 #ifdef USE_FTIME
-#define	GETTIMES(a,b)	ftime(&a); times(&b);
-#define	TIMETYPE	struct timeb
-#else
-#define	GETTIMES(a,b)	a = times(&b);
-#define	TIMETYPE	long
+# define	GETTIMES(ts)	ftime(&((ts).ellapsed)); times(&((ts).tms));
+
+typedef struct {
+	struct timeb	ellapsed;
+	struct tms		tms;
+} time_struct;
+
+#else /* !USE_FTIME */
+# define	GETTIMES(ts)	((ts).ellapsed) = times(&((ts).tms));
+
+typedef struct {
+	long			ellapsed;
+	struct tms		tms;
+} time_struct;
+
 #endif
+
 #ifdef	TCP_WINSHIFT
 int	winshift		= 0;
 int	usewinshift		= 0;
 #endif
-int	tos			= 0;
+
+int	tos				= 0;
 int	maxchildren		= 0;
 
 
@@ -95,15 +115,16 @@ char **argv;
 	int		nconnections = 1;
 	extern char	*optarg;
 	extern int	optind;
+
 #ifdef TCP_MAXSEG
 	int		maxseg;
 	int		maxseglen = sizeof(maxseg);
 #endif
 
-#ifndef __hpux	
+#ifndef DONT_HAVE_GETDTABLESIZE
 	maxchildren = getdtablesize() - 4;
 
-#else /* HP doesn't have the getdtablesize() call */
+#else
 	{
 		struct rlimit rlp;
 
@@ -111,7 +132,7 @@ char **argv;
 		
 		maxchildren = rlp.rlim_cur - 4;
 	}
-#endif /* __hpux */	
+#endif /* DONT_HAVE_GETDTABLESIZE */
 
 	while ((i = getopt(argc, argv, "A:b:cdfFhln:p:s:t:v?")) != EOF) {
 		switch(i) {
@@ -313,10 +334,10 @@ char **argv;
 		name.d_inet.sin_family = AF_INET;
 		gethostname(_myname, sizeof(_myname));
 		if ((hp = gethostbyname(hisname)) == NULL) {
-			long tmp;
+			INADDR_TYPE tmp;
 
 			tmp = inet_addr(hisname);
-			if (tmp == -1) {
+			if (tmp == INADDR_NONE) {
 				fprintf(stderr, "no host entry for %s\n",
 					hisname);
 				exit(1);
@@ -331,7 +352,7 @@ char **argv;
 			bcopy(hp->h_addr, (char *)&name.d_inet.sin_addr,
 							hp->h_length);
 #else
-			long	tmp;
+			INADDR_TYPE	tmp;
 			bcopy(hp->h_addr, (char *)&tmp, hp->h_length);
 			name.d_inet.sin_addr = tmp;
 #endif
@@ -520,12 +541,12 @@ register int in, out;
 	register char	*cp;
 	char		buf[128], *data;
 	long		*cnts;
-	struct tms	tms1, tms2, tms3;
-	TIMETYPE	start, turnaround, end;
-	int		daemon_status;
+	time_struct	start, turnaround, end;
+	int			daemon_status;
 	float		daemon_load;
 	float		daemon_version;
 	char		*daemon_message;
+
 
 	/*
 	 *	The v on the end indicates to the daemon that we are
@@ -599,7 +620,7 @@ register int in, out;
 	if (hash)
 		write(0, "\r\nWrite: ", 9);
 
-	GETTIMES(start, tms1);
+	GETTIMES(start);
 
 	for (i = 0; i < nchunks; i++) {
 		if ((t = write(out, data, chunksize)) < 0) {
@@ -612,7 +633,7 @@ register int in, out;
 			write(1, "#", 1);
 	}
 
-	GETTIMES(turnaround, tms2);
+	GETTIMES(turnaround);
 
 	if (hash)
 		write(0, "\r\nRead:  ", 9);
@@ -674,9 +695,9 @@ register int in, out;
 		}
 	}
 
-	GETTIMES(end, tms3);
+	GETTIMES(end);
 
-	prtimes(&start, &turnaround, &end, &tms1, &tms2, &tms3);
+	prtimes(&start, &turnaround, &end);
 
 	j = 0;
 	for (i = 0; i <= chunksize; i++)
@@ -743,8 +764,7 @@ struct sockaddr_in *name;
 {
 	register int	ret, i;
 	register char	*data;
-	struct tms	tms1, tms2, tms3;
-	TIMETYPE	start, turnaround, end;
+	time_struct	start, turnaround, end;
 	
 	data = valloc(chunksize + buffer_alignment);
 
@@ -755,7 +775,7 @@ struct sockaddr_in *name;
 
 	data += buffer_alignment;
 
-	GETTIMES(start, tms1);
+	GETTIMES(start);
 
 	*data = 0;
 	for (i = 0; i < nchunks; i++) {
@@ -771,61 +791,111 @@ struct sockaddr_in *name;
 		(*data)++;
 	}
 
-	GETTIMES(turnaround, tms2);
+	GETTIMES(turnaround);
 
-	GETTIMES(end, tms3);
+	GETTIMES(end);
 
-	prtimes(&start, &turnaround, &end, &tms1, &tms2, &tms3);
+	prtimes(&start, &turnaround, &end);
 
 }
 
 static void
-prtimes(p0, p1, p2, tms1, tms2, tms3)
-TIMETYPE	*p0, *p1, *p2;
-struct tms	*tms1, *tms2, *tms3;
+prtimes(start, turnaround, end)
+time_struct	*start, *turnaround, *end;
 {
-	long	t1, t2;
+	long	write_ms, write_ums, write_sms;
+	long	read_ms, read_ums, read_sms;
+
+	long	total_data = chunksize*nchunks;
+   
+	int		hz;
+
+
+	/*
+	 * Figure out value for clock ticks per second.
+	 */
+#ifdef HZ_USE_SYSCONF
+
+	hz = (int) sysconf(_SC_CLK_TCK);
+
+#elif defined(HZ_USE_CLK_TCK)
+
+	hz = CLK_TCK;
+
+#elif defined(HZ)
+	hz = HZ;
+
+#else
+	HZ undefined;
+#endif
+	
 
 #ifdef USE_FTIME
-	t1 = (p1->time - p0->time)*1000L
-		 + p1->millitm - p0->millitm;
-	t2 = (p2->time - p1->time)*1000L
-		 + p2->millitm - p1->millitm;
+	write_ms =
+		((turnaround->ellapsed).time - (start->ellapsed).time)*1000L
+		+ (turnaround->ellapsed).millitm - (start->ellapsed).millitm;
+
+	read_ms =
+		((end->ellapsed).time - (turnaround->ellapsed).time)*1000L
+		+ (end->ellapsed).millitm - (turnaround->ellapsed).millitm;
 #else
-	t1 = (*p1 - *p0)*1000/HZ;
-	t2 = (*p2 - *p1)*1000/HZ;
+	write_ms = (turnaround->ellapsed - start->ellapsed)*1000/hz;
+	read_ms = (end->ellapsed - turnaround->ellapsed)*1000/hz;
 #endif
-	tms1->tms_utime = tms2->tms_utime - tms1->tms_utime;
-	tms1->tms_stime = tms2->tms_stime - tms1->tms_stime;
-	tms2->tms_utime = tms3->tms_utime - tms2->tms_utime;
-	tms2->tms_stime = tms3->tms_stime - tms2->tms_stime;
+
+	write_ums =
+		((turnaround->tms).tms_utime - (start->tms).tms_utime) * 1000 / hz;
+
+	write_sms =
+		((turnaround->tms).tms_stime - (start->tms).tms_stime) * 1000 / hz;
+
+	read_ums = 
+		((end->tms).tms_utime - (turnaround->tms).tms_utime) * 1000 / hz;
+
+	read_sms =
+		((end->tms).tms_stime - (turnaround->tms).tms_stime) * 1000 / hz;
+
+
 	printf("           Real  System            User          Kbyte   Mbit(K^2) mbit(1+E6)\n");
+
 #define FORMAT "%7s %7.4f %7.4f (%4.1f%%) %7.4f (%4.1f%%) %7.2f %7.3f   %7.3f\n"
-    if (t1)
-	printf(FORMAT, "write", t1/1000.0,
-		(float)tms1->tms_stime/HZ,
-		(float)tms1->tms_stime/t1*100000.0/HZ,
-		(float)tms1->tms_utime/HZ,
-		(float)tms1->tms_utime/t1*100000.0/HZ,
-		(chunksize*nchunks)/(1024.0*(t1/1000.0)),
-		(chunksize*nchunks)/(128.0*1024.0*(t1/1000.0)),
-		(chunksize*nchunks)/(125.0*t1));
-    if (t2)
-	printf(FORMAT, "read", t2/1000.0,
-		(float)tms2->tms_stime/HZ,
-		(float)tms2->tms_stime/t2*100000.0/HZ,
-		(float)tms2->tms_utime/HZ,
-		(float)tms2->tms_utime/t2*100000.0/HZ,
-		(chunksize*nchunks)/(1024.0*(t2/1000.0)),
-		(chunksize*nchunks)/(128.0*1024.0*(t2/1000.0)),
-		(chunksize*nchunks)/(125.0*t2));
-    if (t1 && t2)
-	printf(FORMAT, "r/w", (t2+t1)/1000.0,
-		(float)(tms1->tms_stime + tms2->tms_stime)/HZ,
-		(float)(tms1->tms_stime + tms2->tms_stime)/(t1+t2)*100000.0/HZ,
-		(float)(tms1->tms_utime + tms2->tms_utime)/HZ,
-		(float)(tms1->tms_utime + tms2->tms_utime)/(t1+t2)*100000.0/HZ,
-		(chunksize*nchunks)/(512.0*((t1 + t2)/1000.0)),
-		(chunksize*nchunks)/(64.0*1024.0*((t1 + t2)/1000.0)),
-		(chunksize*nchunks)/(62.5*(t1 + t2)));
+
+    if (write_ms)
+		printf(FORMAT, "write",
+			   write_ms/1000.0,
+			   write_sms/1000.0,
+			   100.0 * write_sms/write_ms,
+			   write_ums/1000.0,
+			   100.0 * write_ums/write_ms,
+			   total_data / (1024.0*(write_ms/1000.0)),
+			   total_data / (128.0*1024.0*(write_ms/1000.0)),
+			   total_data / (125.0*write_ms));
+
+    if (read_ms)
+		printf(FORMAT, "read",
+			   read_ms/1000.0,
+			   read_sms/1000.0,
+			   100.0 * read_sms/read_ms,
+			   read_ums/1000.0,
+			   100.0 * read_ums/read_ms,
+			   total_data / (1024.0*(read_ms/1000.0)),
+			   total_data / (128.0*1024.0*(read_ms/1000.0)),
+			   total_data / (125.0*read_ms));
+
+	if (write_ms && read_ms) {
+		long total_ms = write_ms + read_ms;
+		long total_ums = write_ums + read_ums;
+		long total_sms = write_sms + read_sms;
+
+		printf(FORMAT, "r/w",
+			   total_ms/1000.0,
+			   total_sms/1000.0,
+			   100.0 * total_sms/total_ms,
+			   total_ums/1000.0,
+			   100.0 * total_ums/total_ms,
+			   total_data / (1024.0*(total_ms/1000.0)),
+			   total_data / (128.0*1024.0*(total_ms/1000.0)),
+			   total_data / (125.0*total_ms));
+
+	}
 }

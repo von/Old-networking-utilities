@@ -1,41 +1,20 @@
-char *version_str = "$Id: nettestd.c,v 1.9 1996/02/21 22:03:30 vwelch Exp $";
+char *version_str = "$Id: nettestd.c,v 1.10 1996/03/24 17:05:47 vwelch Exp $";
 
 #include "nettest.h"
 
 #include <stdlib.h>
 #include <sys/errno.h>
 #include <signal.h>
-#ifdef	WAIT3CODE
-# include <sys/wait.h>
-#endif
+#include <sys/wait.h>
 #include <sys/un.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#ifdef	CRAY2
+#ifdef	NEED_SYS_SYSMACROS_H
 # include <sys/sysmacros.h>
 #endif
 #include <netinet/tcp.h>
 
 
-#ifdef	WAIT3CODE
-/*
-	This is the nicest way to handle children...
-*/
-void dochild()
-{
-	while (wait3(0, WNOHANG, 0) > 0)
-		;
-
-#ifdef SIGNAL_NEEDS_RESET
-	signal(SIGCHLD, dochild);
-#endif
-}
-#else
-/*
-	Otherwise...
-*/
-#define	dochild	SIG_IGN
-#endif
 
 int dflag;
 #define	debug(x)	if(dflag>1)fprintf x
@@ -48,7 +27,7 @@ int buffer_alignment = 0;
 #define	D_FILE	4
 
 static void usage();
-
+void dochild();
 
 main(argc, argv)
 int argc;
@@ -275,13 +254,7 @@ register int s;
 				continue;
 			perror("accept");
 		} else {
-#ifdef WAIT3CODE
-			/* If we have wait3() we can handle child dying */
 			if ((i = fork()) == 0) {
-#else
-			/* Otherwise we have parent die */
-			if ((i = fork()) > 0) {
-#endif
 				close(s);
 				i = data_stream(s2, s2);
 				shutdown(s2, 2);
@@ -485,4 +458,15 @@ usage()
 	fprintf(stderr,
 "           -d			Turn on debugging\n");
 	exit(1);
+}
+
+
+void dochild()
+{
+	while (wait3(0, WNOHANG, 0) > 0)
+		;
+
+#ifdef SIGNAL_NEEDS_RESET
+	signal(SIGCHLD, dochild);
+#endif
 }
