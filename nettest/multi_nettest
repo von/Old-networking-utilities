@@ -13,7 +13,7 @@
 #
 #	Written by vwelch@ncsa.uiuc.edu 2/28/95
 #
-#	$Date: 1995/03/08 03:12:54 $
+#	$Date: 1995/03/08 21:50:57 $
 #
 ###########################################################################
 
@@ -28,7 +28,9 @@ repetitions=5
 
 buffer_sizes="1024 2048 4096 7168 8192 15360 16384 31744 32768 49152 58368 61440 64512 65536 131072"
 
-nettest_cmd="nettest -l"
+nettest_path=""
+nettest_cmd="nettest"
+nettest_args="-l"
 
 sock_buffer_size="default"
 
@@ -41,35 +43,44 @@ usage()	{
 	echo "       -b <buffer size>           Set socket buffer size.";
 	echo "       -D                         Indicate dedicated mode.";
 	echo "       -r <repetitions>           Repetitions of each buffer size.";
-	echo "       -t <total data in kilobytes>";
-	echo "       -T <total data in megabytes>";
+	echo "       -t <tos>                   Specify type of service.";
+	echo "       -K <total data in kilobytes>";
+	echo "       -M <total data in megabytes>";
 	}
+
+###########################################################################
+
+add_args() {
+	nettest_args="$nettest_args $*"
+}
 
 ###########################################################################
 #
 #	Parse command line arguments
 #
 
-if [ -r ./multi_nettestrc ]; then
-	echo Parsing ./multi_nettestrc...
-	. ./multi_nettestrc
+if [ -r ./.multi_nettestrc ]; then
+	echo Parsing ./.multi_nettestrc...
+	. ./.multi_nettestrc
 fi
 
-while getopts b:r:t:T: arg
+while getopts b:DK:M:r:t: arg
 do
 	case $arg in
 	b)	sock_buffer_size=$OPTARG
 		echo "Setting socket buffers to $sock_buffer_size bytes."
-		nettest_cmd="$nettest_cmd -b $sock_buffer_size"
+		add_args "-b $sock_buffer_size";
 		;;
 	D)	dedicated="yes"
 		;;
 	r)	repetitions=$OPTARG
 		;;
-	t)	total_data=`expr $OPTARG \* $kilobyte`
+	t)	add_args "-t $OPTARG";
+		;;
+	K)	total_data=`expr $OPTARG \* $kilobyte`
 		echo "Sending $total_data bytes total."
 		;;
-	T)	total_data=`expr $OPTARG \* $megabyte`
+	M)	total_data=`expr $OPTARG \* $megabyte`
 		echo "Sending $total_data bytes total."
 		;;
 	\?)	usage
@@ -91,6 +102,8 @@ if [ $# -gt 0 ]; then
 	echo "$0: ignoring extra arguments after \"$1\"."
 fi
 
+nettest_cmd=$nettest_path""$nettest_cmd" "$nettest_args;
+
 ###########################################################################
 #
 #	Decide on name of output file and make sure we can write to it
@@ -110,6 +123,7 @@ cat >> $log_file << END_OF_INPUT
 #nettest log: `date`
 #source: $localhost
 #destination: $host
+#nettest command: $nettest_cmd
 #total data: $total_data
 #repetitions: $repetitions
 #socket buffer size: $sock_buffer_size
