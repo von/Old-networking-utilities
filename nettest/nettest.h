@@ -30,6 +30,14 @@
 #define WAIT3CODE
 #endif /* CRAY */
 
+#ifdef CRAY
+#define DONT_HAVE_VALLOC
+#endif
+
+#ifdef DONT_HAVE_VALLOC
+#define	valloc(size)	malloc(size)
+#endif
+
 #if defined(sun)
 extern void		*valloc();
 #endif

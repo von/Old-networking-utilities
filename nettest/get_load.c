@@ -7,11 +7,16 @@
  *	Assumes uptime output format of:
  *	 11:39am  up 19:34,  4 users,  load average: 0.44, 0.38, 0.08
  *
- *	$Id: get_load.c,v 1.2 1995/03/23 02:15:27 vwelch Exp $
+ *	$Id: get_load.c,v 1.3 1995/06/06 21:31:33 vwelch Exp $
  */
 
 #include <stdio.h>
 #include <string.h>
+
+#ifdef CRAY
+#include <sys/types.h>
+#endif
+
 #include <sys/wait.h>
 
 
