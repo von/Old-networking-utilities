@@ -25,6 +25,7 @@ float	version = 1.0;
 /* # define DONT_USE_S_ADDR */
 # define HZ_USE_CLK_TCK
 # define NEED_TIME_H
+# define USE_WAITPID
 # ifdef CRAY2							/* CRAY2 */
 #  define NEED_SYS_SYSMACROS_H
 # endif
