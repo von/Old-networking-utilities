@@ -2,18 +2,23 @@
 # For RS6000s add -DRS6000 to CFLAGS
 #
 FILES	=	nettest nettestd
-SRCS	=	nettest.c nettestd.c nettest.h atoval.c
+SRCS	=	nettest.c nettestd.c nettest.h atoval.c pipe_exec.c get_load.c
+NETTEST_OBJS	=	nettest.o atoval.o pipe_exec.o get_load.o
+NETTESTD_OBJS	=	nettestd.o atoval.o pipe_exec.o get_load.o
 LIBS	=
-CFLAGS	=	$(FLAGS)
+CFLAGS	=	$(FLAGS) -g
 DESTDIR	=	./
 
 all:	$(FILES)
 
-nettest:	nettest.c nettest.h atoval.c
-	cc $(CFLAGS) -o nettest nettest.c atoval.c $(LIBS)
+nettest:	$(NETTEST_OBJS)
+	cc $(CFLAGS) -o $@ $(NETTEST_OBJS) $(LIBS)
 
-nettestd:	nettestd.c nettest.h atoval.c
-	cc $(CFLAGS) -o nettestd nettestd.c atoval.c $(LIBS)
+
+nettestd:	$(NETTESTD_OBJS)
+	cc $(CFLAGS) -o $@ $(NETTESTD_OBJS) $(LIBS)
+
+nettest.o nettestd.o: nettest.h
 
 tar:	$(SRCS) clean
 	rm -f nettest.tar
@@ -26,7 +31,7 @@ $(SRCS):
 	co -q $@
 
 clean:
-	rm -f $(FILES) *.o
+	-rm -f $(FILES) *.o *~
 
 install:	$(FILES)
 	cp $(FILES) $(DESTDIR)

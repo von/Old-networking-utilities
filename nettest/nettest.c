@@ -1,9 +1,12 @@
+/*
 static char USMID[] = "@(#)tcp/usr/etc/nettest/nettest.c	61.1	09/13/90 09:04:50";
+*/
 
-char *version = "$Id: nettest.c,v 1.2 1995/03/03 23:28:02 vwelch Exp $";
+char *version = "$Id: nettest.c,v 1.3 1995/03/04 21:32:31 vwelch Exp $";
 
 #include "nettest.h"
 #include <stdlib.h>
+#include <string.h>
 #ifdef BSD44
 #include <machine/endian.h>
 #include <netinet/in_systm.h>
@@ -44,6 +47,7 @@ int	fullbuf = 0;
 int	kbufsize = 0;
 int	nodelay = 0;
 int	buffer_alignment = 0;
+int	do_load = 0;
 
 #define	D_PIPE	1
 #define	D_UNIX	2
@@ -51,7 +55,7 @@ int	buffer_alignment = 0;
 #define	D_FILE	4
 
 #if !defined(__hpux) && !defined(__convex__)
-long	times();
+clock_t	times();
 #endif
 #ifdef USE_FTIME
 #define	GETTIMES(a,b)	ftime(&a); times(&b);
@@ -107,7 +111,7 @@ char **argv;
 	}
 #endif /* __hpux */	
 
-	while ((i = getopt(argc, argv, "A:b:cdfFhn:p:s:t:v?")) != EOF) {
+	while ((i = getopt(argc, argv, "A:b:cdfFhln:p:s:t:v?")) != EOF) {
 		switch(i) {
 		case 'A':
 		  	buffer_alignment = atoi(optarg);
@@ -139,6 +143,9 @@ char **argv;
 			break;
 		case 'h':
 			++hash;
+			break;
+		case 'l':
+			do_load++;
 			break;
 		case 'n':
 			nconnections = atoi(optarg);
@@ -280,7 +287,7 @@ char **argv;
 		namesize = sizeof(name.d_unix) - sizeof(name.d_unix.sun_path)
 			+ strlen(name.d_unix.sun_path);
 		goto dosock;
-		break;
+		/* break; */
 	case D_INET:
 		if (nconnections > 1 && type != SOCK_STREAM) {
 			fprintf(stderr, "-n flag not supported for udp\n");
@@ -380,8 +387,8 @@ char **argv;
 			       maxseg);
 #endif
 
-		printf("Aligning buffers at %d byte boundaries\n",
-			buffer_alignment);
+		if (buffer_alignment)
+		  printf("Buffer alignment: %d\n", buffer_alignment);
 
 		s2 = s;
 		break;
@@ -392,6 +399,15 @@ char **argv;
 		printf(" from %9s to %9s\n", myname, hisname);
 	else
 		printf("\n");
+
+
+	if (buffer_alignment)
+	  printf("Buffer alignment: %d\n", buffer_alignment);
+	
+
+	if (do_load) {
+	  printf("Local system load:  %8.2f\n", get_load());
+	}
 
 	do_stream(s, s2);
 	if (s == s2)
@@ -481,11 +497,15 @@ register int in, out;
 	long		*cnts;
 	struct tms	tms1, tms2, tms3;
 	TIMETYPE	start, turnaround, end;
+	int		daemon_status;
+	float		daemon_load;
+	char		*daemon_message;
 
-	sprintf(buf, "%d %d %d %d %d %d %d\n", nchunks, chunksize, fullbuf,
-		kbufsize, tos, nodelay, buffer_alignment);
+	sprintf(buf, "%d %d %d %d %d %d %d %d\n", nchunks, chunksize, fullbuf,
+		kbufsize, tos, nodelay, buffer_alignment, do_load);
+
 	if (write(out, buf, strlen(buf))  != strlen(buf)) {
-		perror("write1");
+		perror("write() of configuration to deamon");
 		exit(1);
 	}
 	if ((i = read(in, buf, sizeof(buf))) < 0) {
@@ -495,10 +515,23 @@ register int in, out;
 	buf[i] = '\0';
 	if (buf[i-1] == '\n')
 		buf[--i] = '\0';
-	if (i > 2)
-		printf("remote server: %s\n", &buf[1]);
-	if (i > 1 && buf[0] == '0')
-		exit(1);
+
+	sscanf(buf, "%d %f", &daemon_status, &daemon_load);
+
+	daemon_message = strchr(buf, '\n');
+	
+	if (daemon_message) {
+	  daemon_message++;
+	  if (strlen(daemon_message))
+	    printf("remote server: %s\n", daemon_message + 1);
+	}
+
+	if (daemon_status == 0)
+	  exit(1);
+
+	if (do_load)
+	  printf("Remote system load: %8.2f\n", daemon_load);
+
 	data = valloc(chunksize + buffer_alignment);
 	if (data == NULL) {
 		fprintf(stderr, "cannot malloc enough space\n");

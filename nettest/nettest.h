@@ -31,3 +31,5 @@
 #ifdef sun
 extern malloc_t		valloc();
 #endif
+
+extern float get_load();

@@ -1,4 +1,4 @@
-char *version = "$Id: nettestd.c,v 1.2 1995/03/03 23:28:08 vwelch Exp $";
+char *version = "$Id: nettestd.c,v 1.3 1995/03/04 21:32:37 vwelch Exp $";
 
 #include "nettest.h"
 
@@ -23,9 +23,7 @@ char *version = "$Id: nettestd.c,v 1.2 1995/03/03 23:28:08 vwelch Exp $";
 */
 void dochild()
 {
-	int pid;
-
-	while ((pid = wait3(0, WNOHANG, 0)) > 0)
+	while (wait3(0, WNOHANG, 0) > 0)
 		;
 }
 #else
@@ -39,7 +37,7 @@ int dflag;
 #define	debug(x)	if(dflag>1)fprintf x
 
 int buffer_alignment = 0;
-
+int do_load = 0;
 
 #define	D_PIPE	1
 #define	D_UNIX	2
@@ -50,7 +48,11 @@ main(argc, argv)
 int argc;
 char **argv;
 {
-	register int	s, s2, mode, dev1, dev2;
+	register int	s, s2;
+#ifdef	NAMEDPIPES
+	register int	mode, dev1, dev2;
+	char		buf[256];
+#endif
 	char		*portname = UNIXPORT;
 	short		port = PORTNUMBER;
 	int		domain = D_INET;
@@ -64,7 +66,6 @@ char **argv;
 		struct sockaddr_un	d_unix;
 		struct sockaddr_in	d_inet;
 	} name;
-	char		buf[256];
 	extern int	optind;
 	extern char	*optarg;
 	int		kbufsize = 0;
@@ -184,7 +185,7 @@ char **argv;
 			close(s);
 			sleep(1);
 		}
-		break;
+		/* break; */
 
 	case D_UNIX:
 		name.d_unix.sun_family = AF_UNIX;
@@ -193,7 +194,7 @@ char **argv;
 				+ strlen(name.d_unix.sun_path);
 		(void) unlink(portname);
 		goto dosock;
-		break;
+		/* break; */
 
 	case D_INET:
 		name.d_inet.sin_family = AF_INET;
@@ -250,7 +251,7 @@ register int s;
 	register int		i, s2;
 	struct sockaddr_in	name;
 	int			namesize;
-	int			kbufsize;
+
 	
 	listen(s, 5);
 
@@ -304,8 +305,8 @@ register in, out;
 			break;
 	}
 	*cp = '\0';
-	sscanf(buf, "%d %d %d %d %d %d %d", &chunks, &chunksize, &fullbuf,
-	       &kbufsize, &tos, &nodelay, &buffer_alignment);
+	sscanf(buf, "%d %d %d %d %d %d %d %s", &chunks, &chunksize, &fullbuf,
+	       &kbufsize, &tos, &nodelay, &buffer_alignment, &do_load);
 	/*
 	 * If fullbuf is set, allocate a buffer twice as big.  This
 	 * is so that we can always read a full size buffer, from
@@ -322,7 +323,8 @@ register in, out;
 
 	data += buffer_alignment;
 
-	strcpy(buf, "1");
+	sprintf(buf, "1 %8.2f\n", (do_load ? get_load() : 0));
+	    
 	if (kbufsize) {
 #ifdef	SO_SNDBUF
 		if ((setsockopt(out, SOL_SOCKET, SO_SNDBUF, &kbufsize,
@@ -345,7 +347,7 @@ register in, out;
 #endif
 			strcat(buf, " Cannot set TCP_NODELAY.");
 	}
-	strcat(buf, " \n");
+	strcat(buf, "\n");
 	write(out, buf, strlen(buf));
 	for (i = 0; i < chunks || offset; i++) {
 		if ((t = read(in, data + offset, chunksize)) < 0) {
@@ -401,9 +403,8 @@ bad:
 do_dgram(s)
 int s;
 {
-	register int		t, t2;
+	register int		t;
 	register char		*cp, *data;
-	register struct hostent	*hp;
 	char			*inet_ntoa();
 	struct sockaddr_in	name;
 	int			namesize;
@@ -423,29 +424,9 @@ int s;
 			perror("recvfrom");
 			continue;
 		}
-#ifdef	notdef
-#if	!defined(CRAY) || defined(s_addr)
-		hp = gethostbyaddr((char *)&name.sin_addr,
-			sizeof(name.sin_addr), name.sin_family);
-#else	/* CRAY */
-		{
-			long t;
-			t = name.sin_addr;
-			hp = gethostbyaddr((char *)&t,
-				sizeof(name.sin_addr), name.sin_family);
-		}
-#endif	/* CRAY */
-		if (hp != NULL)
-			cp = hp->h_name;
-		else
-#endif	/* notdef */
-			cp = inet_ntoa(name.sin_addr);
+
+		cp = inet_ntoa(name.sin_addr);
 		printf("got %d bytes from %s\n", t, cp);
-#ifdef	notdef
-		t2 = sendto(s, data, t, 0, (char *)&name, namesize);
-		if (t2 < 0)
-			perror("sendto");
-#endif	/* notdef */
 	}
 }
 

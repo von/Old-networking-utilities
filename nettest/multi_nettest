@@ -11,7 +11,7 @@
 #
 #	Written by vwelch@ncsa.uiuc.edu 2/28/95
 #
-#	$Date: 1995/03/03 05:11:42 $
+#	$Date: 1995/03/04 21:32:28 $
 #
 ###########################################################################
 
@@ -26,7 +26,7 @@ repetitions=5
 
 buffer_sizes="1024 2048 4096 7168 8192 15360 16384 31744 32768 49152 58368 61440 64512 65536 131072"
 
-nettest_cmd="nettest"
+nettest_cmd="nettest -l"
 
 sock_buffer_size="default"
 
@@ -137,10 +137,6 @@ for buffer_size in $buffer_sizes ; do
 	if [ $number_buffers -eq 0 ]; then
 		continue
 	fi
-
-	echo -n "Load average on $localhost:" >> $log_file
-	uptime >> $log_file
-	echo >> $log_file
 
 	echo -n "Doing $buffer_size byte buffers:"
 
