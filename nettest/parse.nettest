@@ -5,7 +5,7 @@
 #
 #	Parse the output of multi_nettest
 #
-#	$Id: parse.nettest,v 1.5 1995/03/08 03:13:24 vwelch Exp $
+#	$Id: parse.nettest,v 1.6 1995/04/17 20:46:59 vwelch Exp $
 #
 ###########################################################################
 
@@ -16,13 +16,17 @@ require 'getopts.pl';
 sub USAGE {
     print "Usage:\n";
     print "  parse.nettest <options> <input file>\n";
+    print "      -f <format>\n";
+    print "         Formats are:   text (default)\n";
+    print "                        xgraph\n";
+    print "                        gnuplot\n";
+    print "      -o <output>\n";
+    print "         Outputs are:   default\n";
+    print "                        percent\n";
     print "      -h    Display help.\n";
     print "      -k    Toggle buffers in kilobytes (default TRUE).\n";
     print "      -r    Toggle display of read stats (default TRUE).\n";
     print "      -w    Toggle display of write stats (default TRUE).\n";
-    print "      -X    Output in xgraph format.\n";
-    print "\nThe following apply to xgraph format:\n";
-    print "      -P    Graph percent sys/user usage instead of throughput.\n";
 }
 
 ###########################################################################
@@ -36,9 +40,12 @@ $DO_KILOBYTES = 1;
 $OUTPUT_WRITE_STATS = 1;
 $OUTPUT_READ_STATS = 1;
 
+$FORMAT = "text";		# xgraph or gnuplot are other options
+$OUTPUT = "default";		# percent is other option
+
 ###########################################################################
 
-&Getopts('hkrwPX');
+&Getopts('f:hko:rw');
 
 if (defined($opt_h)) {
     &USAGE();
@@ -57,8 +64,45 @@ if (defined($opt_w)) {
     $OUTPUT_WRITE_STATS = ! $OUTPUT_WRITE_STATS;
 }
 
-$DO_XGRAPH = $opt_X;
-$XGRAPH_PERCENT = $opt_P;
+if (defined($opt_f)) {
+    $FORMAT = $opt_f;
+}
+
+if (defined($opt_o)) {
+    $OUTPUT = $opt_o;
+}
+
+###########################################################################
+#
+#	Open output file
+#
+
+if ($FORMAT eq "text") {
+    $OUTPUT_FILE = "nettest.results";
+
+} elsif ($FORMAT eq "xgraph") {
+    $OUTPUT_FILE = "nettest.xgraph";
+
+} elsif ($FORMAT eq "gnuplot") {
+    $OUTPUT_FILE = "nettest.gnuplot";
+
+} else {
+    die "Unknown format \"$FORMAT\".\n";
+}
+
+open(OUTPUT_FILE, ">$OUTPUT_FILE") ||
+    die "Couldn't open output file.\n";
+
+select OUTPUT_FILE;
+
+##########
+# Check output
+#
+if (($OUTPUT ne "default") &&
+    ($OUTPUT ne "percent")) {
+    print STDERR "Unknown output \"$OUTPUT\". Going with default.\n";
+    $OUTPUT = "default";
+}
 
 ###########################################################################
 
@@ -120,6 +164,11 @@ while(<>) {
 	$REMOTE_LOAD_AVERAGE_TOTAL += $STUFF[3];
 	$REMOTE_LOAD_AVERAGE_COUNT++;
     }
+
+    if (/^#data file/) {
+	(@STUFF) = split;
+	$DATA_FILE = $STUFF[2];
+    }
 }
 
 ###################
@@ -140,18 +189,21 @@ if ($REMOTE_LOAD_AVERAGE_COUNT) {
 
 @BUFFER_SIZES = sort {$a <=> $b} keys(%WRITE_THROUGHPUT);
 
-if (defined($DO_XGRAPH)) {
+if ($FORMAT eq "text") {
+    &OUTPUT_TEXT();
+
+} elsif ($FORMAT eq "xgraph") {
     &OUTPUT_XGRAPH();
 
-} else {
-    &OUTPUT_GENERIC();
+} elsif ($FORMAT eq "gnuplot") {
+    &OUTPUT_GNUPLOT();
 }
 
 exit(0);
 
 ###########################################################################
 
-sub OUTPUT_GENERIC {
+sub OUTPUT_TEXT {
 
     if ($OUTPUT_WRITE_STATS) {
 	print "\nWRITE Results:\n";
@@ -226,13 +278,18 @@ sub BUFFER_SIZE_TO_STR {
 ###########################################################################
 
 sub OUTPUT_XGRAPH {
+    printf("\n");
     printf("TitleText: %s to %s\n", $LOCAL_HOST, $REMOTE_HOST);
     printf("BoundBox: 1\n");
     printf("Markers: 1\n");
     printf("Ticks: 1\n");
-    printf("XUnitText: Buffersize (bytes)\n");
+    if ($DO_KILOBYTES) {
+	printf("XUnitText: Buffersize (kilobytes)\n");
+    } else {
+	printf("XUnitText: Buffersize (bytes)\n");
+    }
 
-    if (defined($XGRAPH_PERCENT)) {
+    if ($OUTPUT eq "percent") {
 	&OUTPUT_XGRAPH_PERCENT();
     } else {	     
 	&OUTPUT_XGRAPH_THROUGHPUT();
@@ -249,15 +306,15 @@ sub OUTPUT_XGRAPH_THROUGHPUT {
     foreach $BUFFER_SIZE (@BUFFER_SIZES) {
 	$COUNT = $WRITE_COUNT{$BUFFER_SIZE};
 
-	printf("%d %f\n", $BUFFER_SIZE, $WRITE_THROUGHPUT{$BUFFER_SIZE}/$COUNT);
+	printf("%d %f\n", &BUFFER_SIZE_TO_STR($BUFFER_SIZE),
+	       $WRITE_THROUGHPUT{$BUFFER_SIZE}/$COUNT);
     }
 
     printf("\n\"Peak write throughput\n");
 
     foreach $BUFFER_SIZE (@BUFFER_SIZES) {
-	$COUNT = $WRITE_COUNT{$BUFFER_SIZE};
-
-	printf("%d %f\n", $BUFFER_SIZE, $WRITE_PEAK{$BUFFER_SIZE});
+	printf("%d %f\n", &BUFFER_SIZE_TO_STR($BUFFER_SIZE),
+	       $WRITE_PEAK{$BUFFER_SIZE});
     }
  
    printf("\n\"Average read throughput\n");
@@ -265,15 +322,15 @@ sub OUTPUT_XGRAPH_THROUGHPUT {
     foreach $BUFFER_SIZE (@BUFFER_SIZES) {
 	$COUNT = $READ_COUNT{$BUFFER_SIZE};
 
-	printf("%d %f\n", $BUFFER_SIZE, $READ_THROUGHPUT{$BUFFER_SIZE}/$COUNT);
+	printf("%d %f\n", &BUFFER_SIZE_TO_STR($BUFFER_SIZE),
+	       $READ_THROUGHPUT{$BUFFER_SIZE}/$COUNT);
     }
 
     printf("\n\"Peak read throughput\n");
 
     foreach $BUFFER_SIZE (@BUFFER_SIZES) {
-	$COUNT = $READ_COUNT{$BUFFER_SIZE};
-
-	printf("%d %f\n", $BUFFER_SIZE, $READ_PEAK{$BUFFER_SIZE});
+	printf("%d %f\n", &BUFFER_SIZE_TO_STR($BUFFER_SIZE),
+	       $READ_PEAK{$BUFFER_SIZE});
     }
 }
 
@@ -287,7 +344,8 @@ sub OUTPUT_XGRAPH_PERCENT {
     foreach $BUFFER_SIZE (@BUFFER_SIZES) {
 	$COUNT = $WRITE_COUNT{$BUFFER_SIZE};
 
-	printf("%d %f\n", $BUFFER_SIZE, $WRITE_SYS_PERCENT{$BUFFER_SIZE}/$COUNT);
+	printf("%d %f\n", &BUFFER_SIZE_TO_STR($BUFFER_SIZE),
+	       $WRITE_SYS_PERCENT{$BUFFER_SIZE}/$COUNT);
     }
 
     printf("\n\"Average write user percent\n");
@@ -295,7 +353,7 @@ sub OUTPUT_XGRAPH_PERCENT {
     foreach $BUFFER_SIZE (@BUFFER_SIZES) {
 	$COUNT = $WRITE_COUNT{$BUFFER_SIZE};
 
-	printf("%d %f\n", $BUFFER_SIZE,
+	printf("%d %f\n", &BUFFER_SIZE_TO_STR($BUFFER_SIZE),
 	       $WRITE_USER_PERCENT{$BUFFER_SIZE}/$COUNT);
     }
  
@@ -304,7 +362,7 @@ sub OUTPUT_XGRAPH_PERCENT {
     foreach $BUFFER_SIZE (@BUFFER_SIZES) {
 	$COUNT = $READ_COUNT{$BUFFER_SIZE};
 
-	printf("%d %f\n", $BUFFER_SIZE,
+	printf("%d %f\n", &BUFFER_SIZE_TO_STR($BUFFER_SIZE),
 	       $READ_SYS_PERCENT{$BUFFER_SIZE}/$COUNT);
     }
 
@@ -313,7 +371,128 @@ sub OUTPUT_XGRAPH_PERCENT {
     foreach $BUFFER_SIZE (@BUFFER_SIZES) {
 	$COUNT = $READ_COUNT{$BUFFER_SIZE};
 
-	printf("%d %f\n", $BUFFER_SIZE,
+	printf("%d %f\n", &BUFFER_SIZE_TO_STR($BUFFER_SIZE),
 	       $READ_USER_PERCENT{$BUFFER_SIZE}/$COUNT);
     }
 }
+
+
+###########################################################################
+
+sub OUTPUT_GNUPLOT {
+    # Base filename for data files
+    $BASENAME = "$LOCAL_HOST.$REMOTE_HOST.gp.data";
+
+    $READ_AVG_FILE = "$BASENAME.read.avg";
+    $READ_PEAK_FILE = "$BASENAME.read.peak";
+    $WRITE_AVG_FILE = "$BASENAME.write.avg";
+    $WRITE_PEAK_FILE = "$BASENAME.write.peak";
+    $READ_USR_FILE = "$BASENAME.read.user";
+    $READ_SYS_FILE = "$BASENAME.read.sys";
+    $WRITE_USR_FILE = "$BASENAME.write.user";
+    $WRITE_SYS_FILE = "$BASENAME.write.sys";
+
+    printf("\n");
+    printf("# Uncomment following two lines to have gnuplot create a pbm file.\n");
+    printf("#set output \"nettest.pbm\"\n");
+    printf("#set terminal pbm color small\n\n");
+    printf("# Uncomment following two lines to have gnuplot create a postscript file.\n");
+    printf("#set output \"nettest.ps\"\n");
+    printf("#set terminal postscript\n\n");
+    printf("set title \"%s to %s\"\n", $LOCAL_HOST, $REMOTE_HOST);
+    printf("set data style linespoints\n");
+    if ($DO_KILOBYTES) {
+	printf("set xlabel \"Buffersize (kilobytes)\"\n");
+    } else {
+	printf("set xlabel \"Buffersize (bytes)\"\n");
+    }
+    printf("set label \"$DATA_FILE\" at 50,10\n");
+
+    printf("#\n# For percent comment out next two lines and uncomment following two.\n");
+    printf("set ylabel \"Throughput (Mbit/s)\"\n");
+    printf("plot \"%s\" title \"Write Average\", \"%s\" title \"Write Peak\", \"%s\" title \"Read Average\", \"%s\" title \"Read Peak\"\n",
+	   $WRITE_AVG_FILE, $WRITE_PEAK_FILE,
+	   $READ_AVG_FILE, $READ_PEAK_FILE);
+
+    
+    printf("#set ylabel \"Percent of Total Time\"\n");
+
+    printf("#plot \"%s\" title \"Write User\", \"%s\" title \"Write Sys\", \"%s\" title \"Read User\", \"%s\" title \"Read Sys\"\n",
+	   $WRITE_USR_FILE, $WRITE_SYS_FILE,
+	   $READ_USR_FILE, $WRITE_SYS_FILE);
+    
+    printf("pause -1 \"Press return to continue...\n");
+
+    &CREATE_GNUPLOT_DATA_FILES();
+}
+
+	
+###########################################################################
+
+sub CREATE_GNUPLOT_DATA_FILES {
+
+    open(READ_AVG, ">$READ_AVG_FILE") ||
+	die "Couldn't create file $READ_AVG_FILE.\n";
+
+    open(READ_PEAK, ">$READ_PEAK_FILE") ||
+	die "Couldn't create file $READ_PEAK_FILE.\n";
+
+    open(WRITE_AVG, ">$WRITE_AVG_FILE") ||
+	die "Couldn't create file $WRITE_AVG_FILE.\n";
+
+    open(WRITE_PEAK, ">$WRITE_PEAK_FILE") ||
+	die "Couldn't create file $WRITE_PEAK_FILE.\n";
+
+    open(READ_USR, ">$READ_USR_FILE") ||
+	die "Couldn't create file $READ_USR_FILE.\n";
+
+    open(READ_SYS, ">$READ_SYS_FILE") ||
+	die "Couldn't create file $READ_SYS_FILE.\n";
+
+    open(WRITE_USR, ">$WRITE_USR_FILE") ||
+	die "Couldn't create file $WRITE_USR_FILE.\n";
+
+    open(WRITE_SYS, ">$WRITE_SYS_FILE") ||
+	die "Couldn't create file $WRITE_SYS_FILE.\n";
+
+
+    foreach $BUFFER_SIZE (@BUFFER_SIZES) {
+	$COUNT = $WRITE_COUNT{$BUFFER_SIZE};
+
+	printf(WRITE_PEAK "%d %f\n", &BUFFER_SIZE_TO_STR($BUFFER_SIZE),
+	       $WRITE_PEAK{$BUFFER_SIZE});
+
+	printf(WRITE_AVG "%d %f\n", &BUFFER_SIZE_TO_STR($BUFFER_SIZE),
+	       $WRITE_THROUGHPUT{$BUFFER_SIZE}/$COUNT);
+
+	printf(WRITE_USR "%d %f\n", &BUFFER_SIZE_TO_STR($BUFFER_SIZE),
+	       $WRITE_USER_PERCENT{$BUFFER_SIZE}/$COUNT);
+
+	printf(WRITE_SYS "%d %f\n", &BUFFER_SIZE_TO_STR($BUFFER_SIZE),
+	       $WRITE_SYS_PERCENT{$BUFFER_SIZE}/$COUNT);
+
+	$COUNT = $READ_COUNT{$BUFFER_SIZE};
+
+	printf(READ_PEAK "%d %f\n", &BUFFER_SIZE_TO_STR($BUFFER_SIZE),
+	       $READ_PEAK{$BUFFER_SIZE});
+
+	printf(READ_AVG "%d %f\n", &BUFFER_SIZE_TO_STR($BUFFER_SIZE),
+	       $READ_THROUGHPUT{$BUFFER_SIZE}/$COUNT);
+
+	printf(READ_USR "%d %f\n", &BUFFER_SIZE_TO_STR($BUFFER_SIZE),
+	       $READ_USER_PERCENT{$BUFFER_SIZE}/$COUNT);
+
+	printf(READ_SYS "%d %f\n", &BUFFER_SIZE_TO_STR($BUFFER_SIZE),
+	       $READ_SYS_PERCENT{$BUFFER_SIZE}/$COUNT);
+    }
+
+    close(READ_AVG);
+    close(READ_PEAK);
+    close(WRITE_AVG);
+    close(WRITE_PEAK);
+    close(READ_USR);
+    close(READ_SYS);
+    close(WRITE_USR);
+    close(WRITE_SYS);
+}
+	
