@@ -2,13 +2,16 @@
 static char USMID[] = "@(#)tcp/usr/etc/nettest/nettest.c	61.1	09/13/90 09:04:50";
 */
 
-char *version = "$Id: nettest.c,v 1.5 1995/03/08 21:51:51 vwelch Exp $";
+char *version = "nettest.c,v 1.5 1995/03/08 21:51:51 vwelch Exp";
 
 #include "nettest.h"
 #include <stdlib.h>
 #include <string.h>
 #ifdef BSD44
 #include <machine/endian.h>
+#include <netinet/in_systm.h>
+#endif
+#ifdef sun	/* for solaris */
 #include <netinet/in_systm.h>
 #endif
 #include <sys/un.h>

@@ -18,7 +18,9 @@
 #ifdef USE_TIMES
 #include <sys/param.h>
 #else /* USE_FTIMES */
+#ifndef HZ
 #define	HZ	60
+#endif
 #include <sys/timeb.h>
 #endif	/* USE_TIMES */
 #define	UNIXPORT	"un_socket"
@@ -29,7 +31,7 @@
 #endif /* CRAY */
 
 #if defined(sun)
-extern malloc_t		valloc();
+extern void		*valloc();
 #endif
 
 #if defined(__convex__)
