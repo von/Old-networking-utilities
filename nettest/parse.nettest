@@ -5,7 +5,7 @@
 #
 #	Parse the output of multi_nettest
 #
-#	$Id: parse.nettest,v 1.7 1995/06/06 21:31:09 vwelch Exp $
+#	$Id: parse.nettest,v 1.8 1995/06/08 19:41:18 vwelch Exp $
 #
 ###########################################################################
 
@@ -206,6 +206,14 @@ while(<>) {
     if (/^#data file/) {
 	(@STUFF) = split;
 	$DATA_FILE = $STUFF[2];
+    }
+
+    if (/^TCP maximum segment size/) {
+	if (!defined($TCP_MSS)) {
+		(@STUFF) = split;
+		$TCP_MSS = $STUFF[5];
+		print "#tcp mss: $TCP_MSS\n";
+	}
     }
 }
 
