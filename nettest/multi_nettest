@@ -11,7 +11,7 @@
 #
 #	Written by vwelch@ncsa.uiuc.edu 2/28/95
 #
-#	$Date: 1995/03/01 20:28:37 $
+#	$Date: 1995/03/02 19:35:54 $
 #
 ###########################################################################
 
@@ -88,7 +88,9 @@ log_file="$localhost.to.$host.`date +%d%m%y.%H%M%S`"
 
 echo "Writing to output file $log_file"
 
-if [ `touch $log_file` ]; then
+touch $log_file
+
+if [ $? -eq 1 ]; then
 	exit 1;
 fi
 
@@ -99,6 +101,7 @@ destination: $host
 total data: $total_data
 repetitions: $repetitions
 socket buffer size: $sock_buffer_size
+data file: $log_file
 
 
 END_OF_INPUT

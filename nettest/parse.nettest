@@ -1,5 +1,32 @@
 #!/usr/local/bin/perl
 ###########################################################################
+#
+#	parse.nettest
+#
+#	Parse the output of multi_nettest
+#
+#	$Id: parse.nettest,v 1.2 1995/03/02 19:35:57 vwelch Exp $
+#
+###########################################################################
+
+require 'getopts.pl';
+
+###########################################################################
+
+$KILOBYTE = 1024;
+
+###########################################################################
+
+$DO_KILOBYTES = 1;
+
+###########################################################################
+
+&Getopts('k');
+
+if (defined($opt_k)) {
+    $DO_KILOBYTES = !$DO_KILOBYTES;
+}
+
 ###########################################################################
 
 while(<>) {
@@ -30,6 +57,10 @@ while(<>) {
     if (/^socket buffer size/) {
 	print;
 	($FLAK, $FLAK, $FLAK, $SOCKET_BUFFER_SIZE) = split;
+    }
+
+    if (/^data file/) {
+	print;
     }
 
     if (/^Transfer/) {
@@ -75,8 +106,13 @@ print "Buffer size\tAvg Sys Time\tAvg Usr Time\tAvg Mb/s\tPeak Mb/s\n";
 foreach $BUFFER_SIZE (@BUFFER_SIZES) {
     $COUNT = $WRITE_COUNT{$BUFFER_SIZE};
 
-    printf " %8d\t   %4.2f%%\t   %4.2f%%\t  %6.1f\t  %6.1f\n",
-    	$BUFFER_SIZE,
+    if ($DO_KILOBYTES) {
+	printf " %8dk", $BUFFER_SIZE/$KILOBYTE;
+    } else {
+	printf " %8d", $BUFFER_SIZE;
+    }
+
+    printf "\t   %4.2f%%\t   %4.2f%%\t  %6.1f\t  %6.1f\n",
 	$WRITE_SYS_PERCENT{$BUFFER_SIZE}/$COUNT,
     	$WRITE_USER_PERCENT{$BUFFER_SIZE}/$COUNT,
 	$WRITE_THROUGHPUT{$BUFFER_SIZE}/$COUNT,
@@ -91,8 +127,13 @@ print "Buffer size\tAvg Sys Time\tAvg Usr Time\tAvg Mb/s\tPeak Mb/s\n";
 foreach $BUFFER_SIZE (@BUFFER_SIZES) {
     $COUNT = $READ_COUNT{$BUFFER_SIZE};
 
-    printf " %8d\t   %4.2f%%\t   %4.2f%%\t  %6.1f\t  %6.1f\n",
-    	$BUFFER_SIZE,
+    if ($DO_KILOBYTES) {
+	printf " %8dk", $BUFFER_SIZE/$KILOBYTE;
+    } else {
+	printf " %8d", $BUFFER_SIZE;
+    }
+
+    printf "\t   %4.2f%%\t   %4.2f%%\t  %6.1f\t  %6.1f\n",
 	$READ_SYS_PERCENT{$BUFFER_SIZE}/$COUNT,
     	$READ_USER_PERCENT{$BUFFER_SIZE}/$COUNT,
 	$READ_THROUGHPUT{$BUFFER_SIZE}/$COUNT,
