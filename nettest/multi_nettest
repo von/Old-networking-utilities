@@ -1,0 +1,146 @@
+#!/bin/sh
+#set -x
+###########################################################################
+#
+#	mutli_nettest
+#
+#	Run a bunch a nettests between the local host and a specificed
+#	target host recording the results in a log file.
+#
+###########################################################################
+#
+#	Written by vwelch@ncsa.uiuc.edu 2/28/95
+#
+###########################################################################
+
+localhost=`hostname`
+
+total_data=`expr 60 \* 1024`
+
+repetitions=2
+
+buffer_sizes="1024 2048"
+
+nettest_cmd="nettest"
+
+sock_buffer_size="default"
+
+###########################################################################
+
+usage()	{
+	echo "Usage: $0 [<options>] <target host>";
+	echo "       -b <buffer size>           Set socket buffer size.";
+	echo "       -r <repetitions>           Repetitions of each buffer size.";
+	echo "       -t <total data in kilobytes>";
+	echo "       -T <total data in megabytes>";
+	}
+
+###########################################################################
+#
+#	Parse command line arguments
+#
+
+while getopts b:r:t:T: arg
+do
+	case $arg in
+	b)	sock_buffer_size=$OPTARG
+		echo "Setting socket buffers to $sock_buffer_size bytes."
+		nettest_cmd="$nettest_cmd -b $sock_buffer_size"
+		;;
+	r)	repetitions=$OPTARG
+		;;
+	t)	total_data=`expr $OPTARG \* 1024`
+		echo "Sending $total_data bytes total."
+		;;
+	T)	total_data=`expr $OPTARG \* 1024 \* 1024`
+		echo "Sending $total_data bytes total."
+		;;
+	\?)	usage
+		exit 1;
+	esac
+done
+
+shift `expr $OPTIND - 1`
+
+if [ $# -eq 0 ]; then
+	usage
+	exit 1
+fi
+
+host=$1
+shift
+
+if [ $# -gt 0 ]; then
+	echo "$0: ignoring extra arguments after \"$1\"."
+fi
+
+###########################################################################
+#
+#	Decide on name of output file and make sure we can write to it
+#
+
+log_file="$localhost.to.$host.`date +%d%m%y.%H%M%S`"
+
+echo "Writing to output file $log_file"
+
+if [ `touch $log_file` ]; then
+	exit 1;
+fi
+
+cat >> $log_file << END_OF_INPUT
+nettest log: `date`
+source: $localhost
+destination: $host
+total data: $total_data
+repetitions: $repetitions
+socket buffer size: $sock_buffer_size
+
+
+END_OF_INPUT
+
+###########################################################################
+#
+#	Do a traceroute and record results
+#
+
+traceroute $host >> $log_file 2>&1
+echo >> $log_file
+
+###########################################################################
+#
+#	Do it...
+#
+
+for buffer_size in $buffer_sizes ; do
+	repetition=0
+
+	echo "Load average on $localhost:" >> $log_file
+	uptime >> $log_file
+	echo >> $log_file
+
+	echo -n "Doing $buffer_size byte buffers:"
+
+	while [ $repetition -lt $repetitions ]; do
+		repetition=`expr $repetition + 1`
+
+		echo -n "."
+
+		number_buffers=`expr $total_data / $buffer_size`
+
+		 $nettest_cmd $host $number_buffers $buffer_size \
+			>>  $log_file
+
+		if [ $? -eq 1 ]; then
+			echo "nettest exiting abnormally. Aborting." | \
+				tee -a $log_file
+			exit 1;
+		fi
+		
+		echo >> $log_file
+
+	done
+
+	echo "Done."
+done
+
+echo "Finished." | tee -a $log_file
