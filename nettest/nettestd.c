@@ -1,4 +1,4 @@
-char *version = "$Id: nettestd.c,v 1.4 1995/03/07 22:08:02 vwelch Exp $";
+char *version_str = "$Id: nettestd.c,v 1.5 1995/06/08 19:52:31 vwelch Exp $";
 
 #include "nettest.h"
 
@@ -37,7 +37,6 @@ int dflag;
 #define	debug(x)	if(dflag>1)fprintf x
 
 int buffer_alignment = 0;
-int do_load = 0;
 
 #define	D_PIPE	1
 #define	D_UNIX	2
@@ -102,7 +101,7 @@ char **argv;
 			break;
 
 		case 'v':
-			printf("Version: %s\n", version);
+			printf("Version: %s\n", version_str);
 			exit(0);
 
 		case '?':
@@ -294,7 +293,8 @@ register in, out;
 	register char	*cp, *data;
 	char		buf[128];
 	int		chunks = 0, chunksize = 0, fullbuf = 0, kbufsize = 0;
-	int		tos = 0, nodelay = 0;
+	int		tos = 0, nodelay = 0, do_load = 0;
+	float		client_version = 0.0;
 
 	for (cp = buf; ; ) {
 		i = read(in, cp, 1);
@@ -309,8 +309,29 @@ register in, out;
 			break;
 	}
 	*cp = '\0';
-	sscanf(buf, "%d %d %d %d %d %d %d %s", &chunks, &chunksize, &fullbuf,
-	       &kbufsize, &tos, &nodelay, &buffer_alignment, &do_load);
+
+	/* DEBUG */
+	fprintf(stderr, "buf =\"%s\"\n", buf);
+
+	/*
+	 *	Check for 'v' termination string which indicates
+	 *	my custom version.
+	 */
+	if (*(cp-2) != 'v')	/* Not custom version */
+		sscanf(buf, "%d %d %d %d %d %d",
+			&chunks, &chunksize, &fullbuf, &kbufsize, &tos,
+			&nodelay);
+
+	else
+		sscanf(buf, "%d %d %d %d %d %d %d %d %f",
+			&chunks, &chunksize, &fullbuf,
+			&kbufsize, &tos, &nodelay, &buffer_alignment,
+			&do_load, &client_version);
+
+	/* DEBUG */
+	fprintf(stderr, "buf =\"%s\" client_version=%f %d x %d\n",
+		buf, client_version, chunks, chunksize);
+
 	/*
 	 * If fullbuf is set, allocate a buffer twice as big.  This
 	 * is so that we can always read a full size buffer, from
@@ -327,7 +348,15 @@ register in, out;
 
 	data += buffer_alignment;
 
-	sprintf(buf, "1 %8.2f\n", (do_load ? get_load() : 0));
+	/*
+	 * If the client is a non-customized version then we need to
+	 * send it an standard-style reply.
+	 */
+	if (client_version < 1.0)
+		sprintf(buf, "1");
+	else
+		sprintf(buf, "v%f 1 %8.2f\n",
+			version, (do_load ? get_load() : 0));
 	    
 	if (kbufsize) {
 #ifdef	SO_SNDBUF

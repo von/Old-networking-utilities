@@ -2,7 +2,7 @@
 static char USMID[] = "@(#)tcp/usr/etc/nettest/nettest.c	61.1	09/13/90 09:04:50";
 */
 
-char *version = "nettest.c,v 1.5 1995/03/08 21:51:51 vwelch Exp";
+char *version_str = "$Id: nettest.c,v 1.7 1995/06/08 19:52:31 vwelch Exp $";
 
 #include "nettest.h"
 #include <stdlib.h>
@@ -218,7 +218,7 @@ char **argv;
 #endif
 			break;
 		case 'v':
-			printf("Version: %s\n", version);
+			printf("Version: %s\n", version_str);
 			exit(0);
 
 		case '?':
@@ -520,10 +520,16 @@ register int in, out;
 	TIMETYPE	start, turnaround, end;
 	int		daemon_status;
 	float		daemon_load;
+	float		daemon_version;
 	char		*daemon_message;
 
-	sprintf(buf, "%d %d %d %d %d %d %d %d\n", nchunks, chunksize, fullbuf,
-		kbufsize, tos, nodelay, buffer_alignment, do_load);
+	/*
+	 *	The v on the end indicates to the daemon that we are
+	 *	a customized version of the client.
+	 */
+	sprintf(buf, "%d %d %d %d %d %d %d %d %fv\n",
+		nchunks, chunksize, fullbuf, kbufsize, tos,
+		nodelay, buffer_alignment, do_load, version);
 
 	if (write(out, buf, strlen(buf))  != strlen(buf)) {
 		perror("write() of configuration to deamon");
@@ -537,12 +543,26 @@ register int in, out;
 	if (buf[i-1] == '\n')
 		buf[--i] = '\0';
 
-	sscanf(buf, "%d %f", &daemon_status, &daemon_load);
+	if (buf[0] == 'v') {	/* Customized daemon */
+		sscanf(buf, "v%f %d %f",
+			&daemon_version, &daemon_status, &daemon_load);
 
-	daemon_message = strchr(buf, '\n');
+		daemon_message = strchr(buf, '\n');
+
+		if (daemon_message)
+			daemon_message++;	/* Skip over CR */
+
+	} else {		/* Non-customized version */
+		sscanf(buf, "%d", &daemon_status);
+
+		daemon_message = strchr(buf, ' ');
+
+		if (daemon_message)
+			daemon_message++;	/* Skip over Space */
+	}
+
 	
 	if (daemon_message) {
-	  daemon_message++;
 	  if (strlen(daemon_message))
 	    printf("remote server: %s\n", daemon_message + 1);
 	}
@@ -552,8 +572,12 @@ register int in, out;
 	  exit(1);
 	}
 
-	if (do_load)
-	  printf("Remote system load: %8.2f\n", daemon_load);
+	if (do_load) {
+		if (daemon_version < 1.0)
+			printf("Remote system load: -1 (Not supported)\n");
+		else
+			printf("Remote system load: %8.2f\n", daemon_load);
+	}
 
 	data = valloc(chunksize + buffer_alignment);
 	if (data == NULL) {
