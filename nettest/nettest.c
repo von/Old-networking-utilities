@@ -2,7 +2,7 @@
 static char USMID[] = "@(#)tcp/usr/etc/nettest/nettest.c	61.1	09/13/90 09:04:50";
 */
 
-char *version_str = "$Id: nettest.c,v 1.7 1995/06/08 19:52:31 vwelch Exp $";
+char *version_str = "$Id: nettest.c,v 1.8 1995/06/29 18:09:42 vwelch Exp $";
 
 #include "nettest.h"
 #include <stdlib.h>
@@ -76,6 +76,14 @@ int	maxchildren		= 0;
 
 
 struct in_addr hisaddr;
+
+
+static void do_children();
+static void do_stream();
+static void usage();
+static void do_dgram();
+static void prtimes();
+
 
 main(argc, argv)
 int argc;
@@ -445,6 +453,7 @@ char **argv;
  * for the children to die, printing out their statistics (read off of
  * a pipe set up beforehand).
  */
+static void
 do_children(nconnections)
 int nconnections;
 {
@@ -509,6 +518,7 @@ int nconnections;
 }
 
 
+static void
 do_stream(in, out)
 register int in, out;
 {
@@ -691,6 +701,7 @@ bad:
 	exit(1);
 }
 
+static void
 usage()
 {
 	fprintf(stderr, 
@@ -731,6 +742,7 @@ usage()
 	exit(1);
 }
 
+static void
 do_dgram(s, name)
 register int s;
 struct sockaddr_in *name;
@@ -773,6 +785,7 @@ struct sockaddr_in *name;
 
 }
 
+static void
 prtimes(p0, p1, p2, tms1, tms2, tms3)
 TIMETYPE	*p0, *p1, *p2;
 struct tms	*tms1, *tms2, *tms3;

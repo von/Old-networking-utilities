@@ -1,4 +1,4 @@
-char *version_str = "$Id: nettestd.c,v 1.6 1995/06/27 17:36:57 vwelch Exp $";
+char *version_str = "$Id: nettestd.c,v 1.7 1995/06/29 18:09:42 vwelch Exp $";
 
 #include "nettest.h"
 
@@ -42,6 +42,9 @@ int buffer_alignment = 0;
 #define	D_UNIX	2
 #define	D_INET	3
 #define	D_FILE	4
+
+static void usage();
+
 
 main(argc, argv)
 int argc;
@@ -287,7 +290,7 @@ register int s;
 }
 
 data_stream(in, out)
-register in, out;
+register int in, out;
 {
 	register int	i, t, offset = 0;
 	register char	*cp, *data;
@@ -461,6 +464,7 @@ int s;
 	}
 }
 
+static void
 usage()
 {
 	fprintf(stderr,
