@@ -2,7 +2,7 @@
 static char USMID[] = "@(#)tcp/usr/etc/nettest/nettest.c	61.1	09/13/90 09:04:50";
 */
 
-char *version_str = "$Id: nettest.c,v 1.13 1996/06/12 14:00:11 vwelch Exp $";
+char *version_str = "$Id: nettest.c,v 1.14 1996/06/13 16:48:08 vwelch Exp $";
 
 #include "nettest.h"
 #include <stdlib.h>
@@ -52,6 +52,7 @@ int	kbufsize = 0;
 int	nodelay = 0;
 int	buffer_alignment = 0;
 int	do_load = 0;
+int do_histogram = 0;
 
 #define	D_PIPE	1
 #define	D_UNIX	2
@@ -134,7 +135,7 @@ char **argv;
 	}
 #endif /* DONT_HAVE_GETDTABLESIZE */
 
-	while ((i = getopt(argc, argv, "A:b:cdfFhln:p:s:t:v?")) != EOF) {
+	while ((i = getopt(argc, argv, "A:b:cdfFhHln:p:s:t:v?")) != EOF) {
 		switch(i) {
 		case 'A':
 		  	buffer_alignment = atoi(optarg);
@@ -166,6 +167,9 @@ char **argv;
 			break;
 		case 'h':
 			++hash;
+			break;
+		case 'H':
+			do_histogram++;
 			break;
 		case 'l':
 			do_load++;
@@ -699,17 +703,20 @@ register int in, out;
 
 	prtimes(&start, &turnaround, &end);
 
-	j = 0;
-	for (i = 0; i <= chunksize; i++)
-		if (cnts[i]) {
-			printf("%6d: %5d ", i, cnts[i]);
-			if (++j == 4) {
-				printf("\n");
-				j=0;
+	if (do_histogram) {
+		j = 0;	
+		for (i = 0; i <= chunksize; i++)
+			if (cnts[i]) {
+				printf("%6d: %5d ", i, cnts[i]);
+				if (++j == 4) {
+					printf("\n");
+					j=0;
+				}
 			}
-		}
-	if (j)
-		printf("\n");
+		if (j)
+			printf("\n");
+	}
+
 	return;
 bad:
 	perror(buf);
@@ -742,6 +749,8 @@ usage()
 #endif
 	fprintf(stderr,
 "           -h			Print hash marks\n");
+	fprintf(stderr,
+"           -H          Print histogram of read sizes\n");					   
 	fprintf(stderr,
 "           -n			Number of connections\n");
 	fprintf(stderr,
@@ -884,7 +893,7 @@ time_struct	*start, *turnaround, *end;
 			   total_data / (128.0*1024.0*(read_ms/1000.0)),
 			   total_data / (125.0*read_ms));
 	else
-		printf("Read time was 0\n";
+		printf("Read time was 0\n");
 
 	if (write_ms && read_ms) {
 		long total_ms = write_ms + read_ms;
