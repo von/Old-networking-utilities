@@ -5,11 +5,25 @@
 #
 #	Parse the output of multi_nettest
 #
-#	$Id: parse.nettest,v 1.4 1995/03/06 03:35:57 vwelch Exp $
+#	$Id: parse.nettest,v 1.5 1995/03/08 03:13:24 vwelch Exp $
 #
 ###########################################################################
 
 require 'getopts.pl';
+
+###########################################################################
+
+sub USAGE {
+    print "Usage:\n";
+    print "  parse.nettest <options> <input file>\n";
+    print "      -h    Display help.\n";
+    print "      -k    Toggle buffers in kilobytes (default TRUE).\n";
+    print "      -r    Toggle display of read stats (default TRUE).\n";
+    print "      -w    Toggle display of write stats (default TRUE).\n";
+    print "      -X    Output in xgraph format.\n";
+    print "\nThe following apply to xgraph format:\n";
+    print "      -P    Graph percent sys/user usage instead of throughput.\n";
+}
 
 ###########################################################################
 
@@ -19,19 +33,47 @@ $KILOBYTE = 1024;
 
 $DO_KILOBYTES = 1;
 
+$OUTPUT_WRITE_STATS = 1;
+$OUTPUT_READ_STATS = 1;
+
 ###########################################################################
 
-&Getopts('k');
+&Getopts('hkrwPX');
+
+if (defined($opt_h)) {
+    &USAGE();
+    exit 0;
+}
 
 if (defined($opt_k)) {
     $DO_KILOBYTES = !$DO_KILOBYTES;
 }
+
+if (defined($opt_r)) {
+    $OUTPUT_READ_STATS = ! $OUTPUT_READ_STATS;
+}
+
+if (defined($opt_w)) {
+    $OUTPUT_WRITE_STATS = ! $OUTPUT_WRITE_STATS;
+}
+
+$DO_XGRAPH = $opt_X;
+$XGRAPH_PERCENT = $opt_P;
 
 ###########################################################################
 
 while(<>) {
     if (/^\#/) {		# Comment from multi_nettest
 	print;
+
+
+	if (/^#source:/) {
+	    ($FLAK, $LOCAL_HOST) = split;
+	}
+
+	if (/^#destination:/) {
+	    ($FLAK, $REMOTE_HOST) = split;
+	}
     }
 
     if (/^Transfer/) {
@@ -80,6 +122,11 @@ while(<>) {
     }
 }
 
+###################
+#
+# Done parsing now output.
+#
+
 if ($LOCAL_LOAD_AVERAGE_COUNT) {
     printf("#average load on local host: %.2f\n",
 	   $LOCAL_LOAD_AVERAGE_TOTAL/$LOCAL_LOAD_AVERAGE_COUNT);
@@ -90,36 +137,68 @@ if ($REMOTE_LOAD_AVERAGE_COUNT) {
 	   $REMOTE_LOAD_AVERAGE_TOTAL/$REMOTE_LOAD_AVERAGE_COUNT);
 }
 
+
 @BUFFER_SIZES = sort {$a <=> $b} keys(%WRITE_THROUGHPUT);
 
-print "\nWRITE Results:\n";
-print "Buffer size\tAvg Sys Time\tAvg Usr Time\tAvg Mb/s\tPeak Mb/s\n";
+if (defined($DO_XGRAPH)) {
+    &OUTPUT_XGRAPH();
 
-foreach $BUFFER_SIZE (@BUFFER_SIZES) {
-    $COUNT = $WRITE_COUNT{$BUFFER_SIZE};
-    
-    printf(" %s\t   %4.2f%%\t   %4.2f%%\t  %6.1f\t  %6.1f\n",
-	   &BUFFER_SIZE_TO_STR($BUFFER_SIZE),
-	   $WRITE_SYS_PERCENT{$BUFFER_SIZE}/$COUNT,
-	   $WRITE_USER_PERCENT{$BUFFER_SIZE}/$COUNT,
-	   $WRITE_THROUGHPUT{$BUFFER_SIZE}/$COUNT,
-	   $WRITE_PEAK{$BUFFER_SIZE});
+} else {
+    &OUTPUT_GENERIC();
 }
 
-@BUFFER_SIZES = sort {$a <=> $b} keys(%READ_THROUGHPUT);
+exit(0);
 
-print "\nREAD Results:\n";
-print "Buffer size\tAvg Sys Time\tAvg Usr Time\tAvg Mb/s\tPeak Mb/s\n";
+###########################################################################
 
-foreach $BUFFER_SIZE (@BUFFER_SIZES) {
-    $COUNT = $READ_COUNT{$BUFFER_SIZE};
+sub OUTPUT_GENERIC {
+
+    if ($OUTPUT_WRITE_STATS) {
+	print "\nWRITE Results:\n";
+	print "Buffer size\tAvg Sys Time\tAvg Usr Time\tAvg Mb/s\tPeak Mb/s\n";
+
+	foreach $BUFFER_SIZE (@BUFFER_SIZES) {
+	    $COUNT = $WRITE_COUNT{$BUFFER_SIZE};
+	    
+	    &PRINT_STATS($BUFFER_SIZE,
+			 $WRITE_SYS_PERCENT{$BUFFER_SIZE}/$COUNT,
+			 $WRITE_USER_PERCENT{$BUFFER_SIZE}/$COUNT,
+			 $WRITE_THROUGHPUT{$BUFFER_SIZE}/$COUNT,
+			 $WRITE_PEAK{$BUFFER_SIZE});
+	}
+    }
+
+    if ($OUTPUT_READ_STATS) {
+	print "\nREAD Results:\n";
+	print "Buffer size\tAvg Sys Time\tAvg Usr Time\tAvg Mb/s\tPeak Mb/s\n";
+
+	foreach $BUFFER_SIZE (@BUFFER_SIZES) {
+	    $COUNT = $READ_COUNT{$BUFFER_SIZE};
+
+	    &PRINT_STATS($BUFFER_SIZE,
+			 $READ_SYS_PERCENT{$BUFFER_SIZE}/$COUNT,
+			 $READ_USER_PERCENT{$BUFFER_SIZE}/$COUNT,
+			 $READ_THROUGHPUT{$BUFFER_SIZE}/$COUNT,
+			 $READ_PEAK{$BUFFER_SIZE});
+	}
+    }
+}
+	    
+###########################################################################
+
+sub PRINT_STATS {
+    local($BUFFER_SIZE) = shift(@_);
+    local($SYS_PERCENT) = shift(@_);
+    local($USER_PERCENT) = shift(@_);
+    local($THROUGHPUT) = shift(@_);
+    local($PEAK) = shift(@_);
 
     printf(" %s\t   %4.2f%%\t   %4.2f%%\t  %6.1f\t  %6.1f\n",
 	   &BUFFER_SIZE_TO_STR($BUFFER_SIZE),
-	   $READ_SYS_PERCENT{$BUFFER_SIZE}/$COUNT,
-	   $READ_USER_PERCENT{$BUFFER_SIZE}/$COUNT,
-	   $READ_THROUGHPUT{$BUFFER_SIZE}/$COUNT,
-	   $READ_PEAK{$BUFFER_SIZE});
+	   $SYS_PERCENT,
+	   $USER_PERCENT,
+	   $THROUGHPUT,
+	   $PEAK);
 }
 
 ###########################################################################
@@ -142,4 +221,99 @@ sub BUFFER_SIZE_TO_STR {
     }
 
     return sprintf("%8.8s", $BUFFER_STRING);
+}
+
+###########################################################################
+
+sub OUTPUT_XGRAPH {
+    printf("TitleText: %s to %s\n", $LOCAL_HOST, $REMOTE_HOST);
+    printf("BoundBox: 1\n");
+    printf("Markers: 1\n");
+    printf("Ticks: 1\n");
+    printf("XUnitText: Buffersize (bytes)\n");
+
+    if (defined($XGRAPH_PERCENT)) {
+	&OUTPUT_XGRAPH_PERCENT();
+    } else {	     
+	&OUTPUT_XGRAPH_THROUGHPUT();
+    }
+}
+
+###########################################################################
+
+sub OUTPUT_XGRAPH_THROUGHPUT {
+    printf("YUnitText: Throughput (Mbits/s)\n");
+
+    printf("\n\"Average write throughput\n");
+
+    foreach $BUFFER_SIZE (@BUFFER_SIZES) {
+	$COUNT = $WRITE_COUNT{$BUFFER_SIZE};
+
+	printf("%d %f\n", $BUFFER_SIZE, $WRITE_THROUGHPUT{$BUFFER_SIZE}/$COUNT);
+    }
+
+    printf("\n\"Peak write throughput\n");
+
+    foreach $BUFFER_SIZE (@BUFFER_SIZES) {
+	$COUNT = $WRITE_COUNT{$BUFFER_SIZE};
+
+	printf("%d %f\n", $BUFFER_SIZE, $WRITE_PEAK{$BUFFER_SIZE});
+    }
+ 
+   printf("\n\"Average read throughput\n");
+
+    foreach $BUFFER_SIZE (@BUFFER_SIZES) {
+	$COUNT = $READ_COUNT{$BUFFER_SIZE};
+
+	printf("%d %f\n", $BUFFER_SIZE, $READ_THROUGHPUT{$BUFFER_SIZE}/$COUNT);
+    }
+
+    printf("\n\"Peak read throughput\n");
+
+    foreach $BUFFER_SIZE (@BUFFER_SIZES) {
+	$COUNT = $READ_COUNT{$BUFFER_SIZE};
+
+	printf("%d %f\n", $BUFFER_SIZE, $READ_PEAK{$BUFFER_SIZE});
+    }
+}
+
+###########################################################################
+
+sub OUTPUT_XGRAPH_PERCENT {
+    printf("YUnitText: Percent of Total Time\n");
+
+    printf("\n\"Average write system percent\n");
+
+    foreach $BUFFER_SIZE (@BUFFER_SIZES) {
+	$COUNT = $WRITE_COUNT{$BUFFER_SIZE};
+
+	printf("%d %f\n", $BUFFER_SIZE, $WRITE_SYS_PERCENT{$BUFFER_SIZE}/$COUNT);
+    }
+
+    printf("\n\"Average write user percent\n");
+
+    foreach $BUFFER_SIZE (@BUFFER_SIZES) {
+	$COUNT = $WRITE_COUNT{$BUFFER_SIZE};
+
+	printf("%d %f\n", $BUFFER_SIZE,
+	       $WRITE_USER_PERCENT{$BUFFER_SIZE}/$COUNT);
+    }
+ 
+   printf("\n\"Average read system percent\n");
+
+    foreach $BUFFER_SIZE (@BUFFER_SIZES) {
+	$COUNT = $READ_COUNT{$BUFFER_SIZE};
+
+	printf("%d %f\n", $BUFFER_SIZE,
+	       $READ_SYS_PERCENT{$BUFFER_SIZE}/$COUNT);
+    }
+
+    printf("\n\"Average read user percent\n");
+
+    foreach $BUFFER_SIZE (@BUFFER_SIZES) {
+	$COUNT = $READ_COUNT{$BUFFER_SIZE};
+
+	printf("%d %f\n", $BUFFER_SIZE,
+	       $READ_USER_PERCENT{$BUFFER_SIZE}/$COUNT);
+    }
 }
