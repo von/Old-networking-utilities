@@ -1,0 +1,100 @@
+#!/usr/local/bin/perl
+###########################################################################
+###########################################################################
+
+while(<>) {
+    if (/^nettest log/) {
+	print;
+    }
+
+    if (/^source/) {
+	print;
+	($FLAK, $SOURCE) = split;
+    }
+
+    if (/^destination/) {
+	print;
+	($FLAK, $DESTINATION) = split;
+    }
+
+    if (/^total data/) {
+	print;
+	($FLAK, $TOTAL_DATA) = split;
+    }
+
+    if (/^repetitions/) {
+	print;
+	($FLAK, $REPETITIONS) = split;
+    }
+
+    if (/^socket buffer size/) {
+	print;
+	($FLAK, $FLAK, $FLAK, $SOCKET_BUFFER_SIZE) = split;
+    }
+
+    if (/^Transfer/) {
+	($FLAK, $DATA, $FLAK) = split;
+	($NUMBER_BUFFERS, $BUFFER_SIZE) = split(/\*/, $DATA);
+    }
+
+    if (/^  write/) {
+	$WRITE_REAL_TIME{$BUFFER_SIZE} += substr($_, 7, 8);
+	$WRITE_SYS_TIME{$BUFFER_SIZE} += substr($_, 15, 8);
+	$WRITE_SYS_PERCENT{$BUFFER_SIZE} += substr($_, 25, 4);
+	$WRITE_USER_TIME{$BUFFER_SIZE} += substr($_, 31, 8);
+	$WRITE_USER_PERCENT{$BUFFER_SIZE} += substr($_, 41, 4);
+	$THROUGHPUT = substr($_, 56, 9);
+	$WRITE_THROUGHPUT{$BUFFER_SIZE} += $THROUGHPUT;
+	if ($THROUGHPUT > $WRITE_PEAK{$BUFFER_SIZE}) {
+	    $WRITE_PEAK{$BUFFER_SIZE} = $THROUGHPUT;
+	}
+	$WRITE_COUNT{$BUFFER_SIZE}++;
+    }
+
+    if (/^   read/) {
+	$READ_REAL_TIME{$BUFFER_SIZE} += substr($_, 7, 8);
+	$READ_SYS_TIME{$BUFFER_SIZE} += substr($_, 15, 8);
+	$READ_SYS_PERCENT{$BUFFER_SIZE} += substr($_, 25, 4);
+	$READ_USER_TIME{$BUFFER_SIZE} += substr($_, 31, 8);
+	$READ_USER_PERCENT{$BUFFER_SIZE} += substr($_, 41, 4);
+	$THROUGHPUT = substr($_, 56, 9);
+	$READ_THROUGHPUT{$BUFFER_SIZE} += $THROUGHPUT;
+	if ($THROUGHPUT > $READ_PEAK{$BUFFER_SIZE}) {
+	    $READ_PEAK{$BUFFER_SIZE} = $THROUGHPUT;
+	}
+	$READ_COUNT{$BUFFER_SIZE}++;
+    }
+}
+
+
+@BUFFER_SIZES = sort {$a <=> $b} keys(%WRITE_THROUGHPUT);
+
+print "\nWRITE Results:\n";
+print "Buffer size\tAvg Sys Time\tAvg Usr Time\tAvg Mb/s\tPeak Mb/s\n";
+
+foreach $BUFFER_SIZE (@BUFFER_SIZES) {
+    $COUNT = $WRITE_COUNT{$BUFFER_SIZE};
+
+    printf " %8d\t   %4.2f%%\t   %4.2f%%\t  %6.1f\t  %6.1f\n",
+    	$BUFFER_SIZE,
+	$WRITE_SYS_PERCENT{$BUFFER_SIZE}/$COUNT,
+    	$WRITE_USER_PERCENT{$BUFFER_SIZE}/$COUNT,
+	$WRITE_THROUGHPUT{$BUFFER_SIZE}/$COUNT,
+	$WRITE_PEAK{$BUFFER_SIZE};
+}
+
+@BUFFER_SIZES = sort {$a <=> $b} keys(%READ_THROUGHPUT);
+
+print "\nREAD Results:\n";
+print "Buffer size\tAvg Sys Time\tAvg Usr Time\tAvg Mb/s\tPeak Mb/s\n";
+
+foreach $BUFFER_SIZE (@BUFFER_SIZES) {
+    $COUNT = $READ_COUNT{$BUFFER_SIZE};
+
+    printf " %8d\t   %4.2f%%\t   %4.2f%%\t  %6.1f\t  %6.1f\n",
+    	$BUFFER_SIZE,
+	$READ_SYS_PERCENT{$BUFFER_SIZE}/$COUNT,
+    	$READ_USER_PERCENT{$BUFFER_SIZE}/$COUNT,
+	$READ_THROUGHPUT{$BUFFER_SIZE}/$COUNT,
+	$READ_PEAK{$BUFFER_SIZE};
+}
