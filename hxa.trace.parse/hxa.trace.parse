@@ -10,7 +10,7 @@
 #
 #	Output goes to stdout and is meant for xgraph.
 #
-#	$Id: hxa.trace.parse,v 1.1 1995/03/09 16:22:55 vwelch Exp $
+#	$Id: hxa.trace.parse,v 1.2 1995/03/09 18:32:49 vwelch Exp $
 #
 ###########################################################################
 
@@ -18,7 +18,7 @@ require 'getopts.pl';
 
 ###########################################################################
 
-$WINSCALE = 0;
+$WINSCALE = 5;
 
 $HEADER_SIZE = 48;
 
@@ -33,13 +33,21 @@ if (defined($opt_w)) {
 	$WINSCALE = $opt_w;
 }
 
+$UNACKED_DATA_FILE = "/tmp/DATA.$$";
+$WINDOW_FILE = "/tmp/WIN.$$";
+
 ###########################################################################
 
-open(DATA_FILE, ">DATA") || die "Couldn't open data file.";
+open(DATA_FILE, ">$UNACKED_DATA_FILE")
+ || die "Couldn't open temporary file \"$UNACKED_DATA_FILE\".";
+
 printf DATA_FILE "\"Unacked data\n";
 
-open(WIN_FILE, ">WIN") || die "Couldn't open window file.";
-printf WIN_FILE "\"Window Size\n";
+open(WIN_FILE, ">$WINDOW_FILE") 
+|| die "Couldn't open temporary file \"$WINDOW_FILE\".";
+
+print WIN_FILE "\"Window Size\n";
+print WIN_FILE "#Window scale: $WINSCALE\n";
 
 while (<>) {
 	($TIMESTAMP, $SRC, $DST, $SIZE, $SEQ, $ACK, $WIN) =
@@ -54,7 +62,8 @@ while (<>) {
 	if (!defined($SRC_HOST)) {
 		$SRC_HOST = $SRC;
 		$DST_HOST = $DST;
-		print "TitleText: $SRC_HOST to $DST_HOST\n";
+		$SRC_NAME = &PARSE_HOST_NAME($SRC);
+		$DST_NAME = &PARSE_HOST_NAME($DST);
 		$HIGH_ACKED = $SEQ;
 	}
 
@@ -63,6 +72,11 @@ while (<>) {
 		$SENT = $SEQ + $SIZE - $HEADER_SIZE;
 		if ($SENT > $HIGH_SEQ) {
 			$HIGH_SEQ = $SENT;
+		}
+
+		if ($SENT != $LAST_SENT) {
+		    $LAST_SENT = $SENT;
+		    $LAST_CHANGE = $TIMESTAMP;
 		}
 
 	} else {
@@ -74,33 +88,88 @@ while (<>) {
 	}
 
 	$OUTSTANDING = $HIGH_SEQ - $HIGH_ACKED;
+
+	# Another kludge. If the amount of outstanding data is <=16
+	# then generally we've reached the end of interesting data
+	# and we should cut it off.
+	if ($OUTSTANDING > 16) {
+	    $LAST_POINT_OF_INTEREST = $TIMESTAMP;
+	}
+
 	printf DATA_FILE "$TIMESTAMP $OUTSTANDING\n";
 }
 
 close DATA_FILE;
 close WIN_FILE;
 
+# Go just a little beyond
+$LAST_POINT_OF_INTEREST += 500;
+
+print "TitleText: $SRC_NAME to $DST_NAME\n";
 print "XUnitText: HXA Timestamp\n";
-print "YUnitText: Bytes\n\n";
+print "YUnitText: Window Size (bytes)\n";
+print "BoundBox: 1\n";
+print "Markers: 1\n";
+print "Ticks: 1\n";
+print "# Cut off at timestamp $LAST_POINT_OF_INTEREST.\n";
+print "\n\n";
 
 # Concatenate files and outp
-
-open(DATA_FILE, "<DATA") || die "Couldn't open data file.";
+open(DATA_FILE, "<$UNACKED_DATA_FILE")
+ || die "Couldn't reopen temporary file \"$UNACKED_DATA_FILE\".";
 
 while (<DATA_FILE>) {
-	print;
+    if (/^[0-9]/) {
+	($TIMESTAMP, $DATA) = split;
+	if ($TIMESTAMP > $LAST_POINT_OF_INTEREST) {
+	    last;
 	}
+    }
+
+    print;
+}
 
 close DATA_FILE;
 
 
 print "\n\n\n";
 
-open(WIN_FILE, "<WIN") || die "Could open window file.";
+open(WIN_FILE, "<$WINDOW_FILE") 
+|| die "Couldn't reopen temporary file \"$WINDOW_FILE\".";
 
 while (<WIN_FILE>) {
-	print;
+    if (/^[0-9]/) {
+	($TIMESTAMP, $DATA) = split;
+	if ($TIMESTAMP > $LAST_POINT_OF_INTEREST) {
+	    last;
+	}
+    }
+    print;
 }
 
-unlink "WIN";
-unlink "DATA";
+close WIN_FILE;
+
+unlink "$WINDOW_FILE";
+unlink "$UNACKED_DATA_FILE";
+
+###########################################################################
+
+sub PARSE_HOST_NAME {
+    local($RAW_NAME) = shift;
+
+    # Discard port number
+
+    ($IP1, $IP2, $IP3, $IP4, $PORT_NUM) = split(/\./, $RAW_NAME);
+
+    $IP_ADDR = pack("C4", $IP1, $IP2, $IP3, $IP4);
+
+    # Now see if we can resolve to a name...
+    $NAME = (gethostbyaddr($IP_ADDR, 2))[0]; # 2 is internet domain
+
+    # If not just return IP address as a string.
+    if (!defined($NAME)) {
+	$NAME = join('.', $IP1, $IP2, $IP3, $IP4);
+    }
+
+    return $NAME;
+}
