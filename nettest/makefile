@@ -12,11 +12,11 @@ DESTDIR	=	./
 all:	$(FILES)
 
 nettest:	$(NETTEST_OBJS)
-	cc $(CFLAGS) -o $@ $(NETTEST_OBJS) $(LIBS)
+	$(CC) $(CFLAGS) -o $@ $(NETTEST_OBJS) $(LIBS)
 
 
 nettestd:	$(NETTESTD_OBJS)
-	cc $(CFLAGS) -o $@ $(NETTESTD_OBJS) $(LIBS)
+	$(CC) $(CFLAGS) -o $@ $(NETTESTD_OBJS) $(LIBS)
 
 nettest.o nettestd.o: nettest.h
 
