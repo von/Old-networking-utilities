@@ -5,7 +5,7 @@
 #
 #	Parse the output of multi_nettest
 #
-#	$Id: parse.nettest,v 1.2 1995/03/02 19:35:57 vwelch Exp $
+#	$Id: parse.nettest,v 1.3 1995/03/03 05:11:44 vwelch Exp $
 #
 ###########################################################################
 
@@ -30,36 +30,7 @@ if (defined($opt_k)) {
 ###########################################################################
 
 while(<>) {
-    if (/^nettest log/) {
-	print;
-    }
-
-    if (/^source/) {
-	print;
-	($FLAK, $SOURCE) = split;
-    }
-
-    if (/^destination/) {
-	print;
-	($FLAK, $DESTINATION) = split;
-    }
-
-    if (/^total data/) {
-	print;
-	($FLAK, $TOTAL_DATA) = split;
-    }
-
-    if (/^repetitions/) {
-	print;
-	($FLAK, $REPETITIONS) = split;
-    }
-
-    if (/^socket buffer size/) {
-	print;
-	($FLAK, $FLAK, $FLAK, $SOCKET_BUFFER_SIZE) = split;
-    }
-
-    if (/^data file/) {
+    if (/^\#/) {		# Comment from multi_nettest
 	print;
     }
 
@@ -95,8 +66,16 @@ while(<>) {
 	}
 	$READ_COUNT{$BUFFER_SIZE}++;
     }
+
+    if (/^Load average/) {
+	(@STUFF) = split;
+	$LOAD_AVERAGE_TOTAL += $STUFF[13];
+	$LOAD_AVERAGE_COUNT++;
+    }
 }
 
+printf("#average load on source: %.2f\n",
+       $LOAD_AVERAGE_TOTAL/$LOAD_AVERAGE_COUNT);
 
 @BUFFER_SIZES = sort {$a <=> $b} keys(%WRITE_THROUGHPUT);
 
@@ -105,18 +84,13 @@ print "Buffer size\tAvg Sys Time\tAvg Usr Time\tAvg Mb/s\tPeak Mb/s\n";
 
 foreach $BUFFER_SIZE (@BUFFER_SIZES) {
     $COUNT = $WRITE_COUNT{$BUFFER_SIZE};
-
-    if ($DO_KILOBYTES) {
-	printf " %8dk", $BUFFER_SIZE/$KILOBYTE;
-    } else {
-	printf " %8d", $BUFFER_SIZE;
-    }
-
-    printf "\t   %4.2f%%\t   %4.2f%%\t  %6.1f\t  %6.1f\n",
-	$WRITE_SYS_PERCENT{$BUFFER_SIZE}/$COUNT,
-    	$WRITE_USER_PERCENT{$BUFFER_SIZE}/$COUNT,
-	$WRITE_THROUGHPUT{$BUFFER_SIZE}/$COUNT,
-	$WRITE_PEAK{$BUFFER_SIZE};
+    
+    printf(" %s\t   %4.2f%%\t   %4.2f%%\t  %6.1f\t  %6.1f\n",
+	   &BUFFER_SIZE_TO_STR($BUFFER_SIZE),
+	   $WRITE_SYS_PERCENT{$BUFFER_SIZE}/$COUNT,
+	   $WRITE_USER_PERCENT{$BUFFER_SIZE}/$COUNT,
+	   $WRITE_THROUGHPUT{$BUFFER_SIZE}/$COUNT,
+	   $WRITE_PEAK{$BUFFER_SIZE});
 }
 
 @BUFFER_SIZES = sort {$a <=> $b} keys(%READ_THROUGHPUT);
@@ -127,15 +101,32 @@ print "Buffer size\tAvg Sys Time\tAvg Usr Time\tAvg Mb/s\tPeak Mb/s\n";
 foreach $BUFFER_SIZE (@BUFFER_SIZES) {
     $COUNT = $READ_COUNT{$BUFFER_SIZE};
 
+    printf(" %s\t   %4.2f%%\t   %4.2f%%\t  %6.1f\t  %6.1f\n",
+	   &BUFFER_SIZE_TO_STR($BUFFER_SIZE),
+	   $READ_SYS_PERCENT{$BUFFER_SIZE}/$COUNT,
+	   $READ_USER_PERCENT{$BUFFER_SIZE}/$COUNT,
+	   $READ_THROUGHPUT{$BUFFER_SIZE}/$COUNT,
+	   $READ_PEAK{$BUFFER_SIZE});
+}
+
+###########################################################################
+
+sub BUFFER_SIZE_TO_STR {
+    local($BUFFER_SIZE) = shift(@_);
+
     if ($DO_KILOBYTES) {
-	printf " %8dk", $BUFFER_SIZE/$KILOBYTE;
+	$BUFFER_SIZE /= $KILOBYTE;
+
+	if ($BUFFER_SIZE == int($BUFFER_SIZE)) {
+	    $BUFFER_STRING = sprintf("%dK", $BUFFER_SIZE);
+	    
+	} else {
+	    $BUFFER_STRING = sprintf("%.3fK", $BUFFER_SIZE);
+	}
+
     } else {
-	printf " %8d", $BUFFER_SIZE;
+	$BUFFER_STRING = sprintf("%d", $BUFFER_SIZE);
     }
 
-    printf "\t   %4.2f%%\t   %4.2f%%\t  %6.1f\t  %6.1f\n",
-	$READ_SYS_PERCENT{$BUFFER_SIZE}/$COUNT,
-    	$READ_USER_PERCENT{$BUFFER_SIZE}/$COUNT,
-	$READ_THROUGHPUT{$BUFFER_SIZE}/$COUNT,
-	$READ_PEAK{$BUFFER_SIZE};
+    return sprintf("%8.8s", $BUFFER_STRING);
 }
