@@ -2,7 +2,7 @@
 static char USMID[] = "@(#)tcp/usr/etc/nettest/nettest.c	61.1	09/13/90 09:04:50";
 */
 
-char *version_str = "$Id: nettest.c,v 1.12 1996/04/04 15:21:44 vwelch Exp $";
+char *version_str = "$Id: nettest.c,v 1.13 1996/06/12 14:00:11 vwelch Exp $";
 
 #include "nettest.h"
 #include <stdlib.h>
@@ -808,7 +808,7 @@ time_struct	*start, *turnaround, *end;
 
 	long	total_data = chunksize*nchunks;
    
-	int		hz;
+	int		hertz;
 
 
 	/*
@@ -816,14 +816,14 @@ time_struct	*start, *turnaround, *end;
 	 */
 #ifdef HZ_USE_SYSCONF
 
-	hz = (int) sysconf(_SC_CLK_TCK);
+	hertz = (int) sysconf(_SC_CLK_TCK);
 
 #elif defined(HZ_USE_CLK_TCK)
 
-	hz = CLK_TCK;
+	hertz = CLK_TCK;
 
 #elif defined(HZ)
-	hz = HZ;
+	hertz = HZ;
 
 #else
 	HZ undefined;
@@ -839,21 +839,21 @@ time_struct	*start, *turnaround, *end;
 		((end->ellapsed).time - (turnaround->ellapsed).time)*1000L
 		+ (end->ellapsed).millitm - (turnaround->ellapsed).millitm;
 #else
-	write_ms = (turnaround->ellapsed - start->ellapsed)*1000/hz;
-	read_ms = (end->ellapsed - turnaround->ellapsed)*1000/hz;
+	write_ms = (turnaround->ellapsed - start->ellapsed)*1000/hertz;
+	read_ms = (end->ellapsed - turnaround->ellapsed)*1000/hertz;
 #endif
 
 	write_ums =
-		((turnaround->tms).tms_utime - (start->tms).tms_utime) * 1000 / hz;
+		((turnaround->tms).tms_utime - (start->tms).tms_utime) * 1000 / hertz;
 
 	write_sms =
-		((turnaround->tms).tms_stime - (start->tms).tms_stime) * 1000 / hz;
+		((turnaround->tms).tms_stime - (start->tms).tms_stime) * 1000 / hertz;
 
 	read_ums = 
-		((end->tms).tms_utime - (turnaround->tms).tms_utime) * 1000 / hz;
+		((end->tms).tms_utime - (turnaround->tms).tms_utime) * 1000 / hertz;
 
 	read_sms =
-		((end->tms).tms_stime - (turnaround->tms).tms_stime) * 1000 / hz;
+		((end->tms).tms_stime - (turnaround->tms).tms_stime) * 1000 / hertz;
 
 
 	printf("           Real  System            User          Kbyte   Mbit(K^2) mbit(1+E6)\n");
@@ -870,6 +870,8 @@ time_struct	*start, *turnaround, *end;
 			   total_data / (1024.0*(write_ms/1000.0)),
 			   total_data / (128.0*1024.0*(write_ms/1000.0)),
 			   total_data / (125.0*write_ms));
+	else
+		printf("Write time was 0\n");
 
     if (read_ms)
 		printf(FORMAT, "read",
@@ -881,6 +883,8 @@ time_struct	*start, *turnaround, *end;
 			   total_data / (1024.0*(read_ms/1000.0)),
 			   total_data / (128.0*1024.0*(read_ms/1000.0)),
 			   total_data / (125.0*read_ms));
+	else
+		printf("Read time was 0\n";
 
 	if (write_ms && read_ms) {
 		long total_ms = write_ms + read_ms;
@@ -898,4 +902,5 @@ time_struct	*start, *turnaround, *end;
 			   2 * total_data / (125.0*total_ms));
 
 	}
+		
 }
