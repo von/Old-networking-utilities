@@ -1,4 +1,10 @@
+/*
+ *	$Id: nettest.h,v 1.7 1995/06/08 19:53:04 vwelch Exp $
+ */
 /* USMID @(#)tcp/usr/etc/nettest/nettest.h	61.0	09/03/90 19:11:52 */
+
+float	version = 1.0;
+
 #define	CHUNK	4096
 #define	NCHUNKS	100
 
