@@ -1,6 +1,4 @@
-#
-# For RS6000s add -DRS6000 to CFLAGS
-#
+
 FILES	=	nettest nettestd
 SRCS	=	nettest.c nettestd.c nettest.h atoval.c pipe_exec.c get_load.c
 NETTEST_OBJS	=	nettest.o atoval.o pipe_exec.o get_load.o

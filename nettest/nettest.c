@@ -2,7 +2,7 @@
 static char USMID[] = "@(#)tcp/usr/etc/nettest/nettest.c	61.1	09/13/90 09:04:50";
 */
 
-char *version_str = "$Id: nettest.c,v 1.14 1996/06/13 16:48:08 vwelch Exp $";
+char *version_str = "$Id: nettest.c,v 1.15 1997/02/17 20:28:03 vwelch Exp $";
 
 #include "nettest.h"
 #include <stdlib.h>
@@ -402,13 +402,22 @@ char **argv;
 				       (char *) &winshift,
 				       sizeof(winshift)) < 0)
 				perror("setsockopt - TCP_WINSHIFT");
+
 			if (getsockopt(s, IPPROTO_TCP, TCP_WINSHIFT, 
 				       (char *) &winshift, &size) < 0)
 				perror("getsockopt - TCP_WINSHIFT");
 			else
-				printf("TCP_WINSHIFT = %d\n", winshift);
+				printf("nettest: TCP_WINSHIFT = %d\n", winshift);
 		}
 #endif
+#ifdef	TCP_RFC1323
+		if (setsockopt(s, IPPROTO_TCP, TCP_RFC1323,
+					   (char *) &on, sizeof(on)) < 0) {
+			perror("secsockopt - TCPRFC1323");
+		} else {
+			printf("nettest: TCP_RFC1323 option set.\n");
+		}
+#endif	/* TCP_RFC1323 */
 #ifdef	TCP_NODELAY
 		if (nodelay) {
 			if (setsockopt(s, IPPROTO_TCP, TCP_NODELAY, 
@@ -431,7 +440,7 @@ char **argv;
 			       (char *) &maxseg, &maxseglen) < 0)
 		  	perror("getsockopt - TCPMAXSEG");
 		else
-		  	printf("TCP maximum segment size = %d bytes\n",
+		  	printf("nettest: MSS = %d bytes\n",
 			       maxseg);
 #endif
 

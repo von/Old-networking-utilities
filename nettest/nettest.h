@@ -31,10 +31,6 @@ float	version = 1.0;
 # endif
 #endif
 
-#ifdef RS6000							/* RS6000 */
-/* Nothing */
-#endif
-
 #ifdef sgi								/* SGI */
 # define SIGNAL_NEEDS_RESET
 # define NEED_IN_SYSTM_H
@@ -73,7 +69,7 @@ float	version = 1.0;
 # define HZ_USE_CLK_TCK
 #endif
 
-#ifdef RS6000							/* RS6000 */
+#ifdef _AIX								/* RS6000 */
 # define DONT_DO_IP_TOS
 #endif
 
