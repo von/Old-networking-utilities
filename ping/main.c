@@ -3,7 +3,7 @@ static char sccsid[] = "@(#)main.c	4.5 (Berkeley) 4/14/86";
 #endif
 
 /*
- *			P I N G . C
+ *	ADD		P I N G . C
  *
  * Using the InterNet Control Message Protocol (ICMP) "ECHO" facility,
  * measure round-trip-delays and packet loss across network paths.
