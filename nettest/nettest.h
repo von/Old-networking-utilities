@@ -1,5 +1,5 @@
 /*
- *	$Id: nettest.h,v 1.7 1995/06/08 19:53:04 vwelch Exp $
+ *	$Id: nettest.h,v 1.8 1995/09/21 17:52:36 vwelch Exp $
  */
 /* USMID @(#)tcp/usr/etc/nettest/nettest.h	61.0	09/03/90 19:11:52 */
 
@@ -38,6 +38,10 @@ float	version = 1.0;
 
 #ifdef CRAY
 #define DONT_HAVE_VALLOC
+#endif
+
+#ifdef sgi
+#define SIGNAL_NEEDS_RESET
 #endif
 
 #ifdef DONT_HAVE_VALLOC

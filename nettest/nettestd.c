@@ -1,4 +1,4 @@
-char *version_str = "$Id: nettestd.c,v 1.7 1995/06/29 18:09:42 vwelch Exp $";
+char *version_str = "$Id: nettestd.c,v 1.8 1995/09/21 17:52:37 vwelch Exp $";
 
 #include "nettest.h"
 
@@ -25,6 +25,10 @@ void dochild()
 {
 	while (wait3(0, WNOHANG, 0) > 0)
 		;
+
+#ifdef SIGNAL_NEEDS_RESET
+	signal(SIGCHLD, dochild);
+#endif
 }
 #else
 /*
