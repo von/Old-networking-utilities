@@ -1,4 +1,3 @@
-#include "netlog.h"
 
 
 #include <stdio.h>
@@ -7,12 +6,14 @@
 #include <sys/uio.h>
 #include <netinet/in.h>
 
+#include "netlog.h"
 
 #define BUF_SIZE	10000
 
 main()
 {
 	int s, accept_sock, sv[2], count, iovnum;
+	int reuseaddr = 1;
 	struct sockaddr_in addr;
 	struct msghdr message; 
 	struct iovec iov[3];
@@ -48,13 +49,19 @@ main()
 
 	s = socket(PF_INET, SOCK_STREAM, 0);
 
+	setsockopt(s, SOL_SOCKET, SO_REUSEADDR,
+		   &reuseaddr, sizeof(reuseaddr));
+
 	netlog_comment("Comment test.");
 
 	addr.sin_family = AF_INET;
 	addr.sin_addr.s_addr = INADDR_ANY;
 	addr.sin_port = htons(6767);
 
-	bind(s, (struct sockaddr *) &addr, sizeof(addr));
+	if (bind(s, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
+	  perror("bind()");
+	  exit(1);
+	}
 
 	listen(s, 5);
 
@@ -62,6 +69,11 @@ main()
 
 	s = accept(accept_sock, NULL, NULL);
 	
+	if (s < 0) {
+	  perror("socket()");
+	  exit(1);
+	}
+
 	write(s, buffer, BUF_SIZE);
 	
 #ifndef CRAY

@@ -1,12 +1,10 @@
-#include "netlog.h"
-
-
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
 #include <netinet/in.h>
 
+#include "netlog.h"
 
 #define BUF_SIZE        10000
 
@@ -31,7 +29,10 @@ main()
 #endif
 	addr.sin_port = htons(6767);
 
-	connect(s, (struct sockaddr *) &addr, sizeof(addr));
+	if (connect(s, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
+	  perror("connect()");
+	  exit(1);
+	}
 
 	count = 0;
 
