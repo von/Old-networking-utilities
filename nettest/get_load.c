@@ -7,14 +7,19 @@
  *	Assumes uptime output format of:
  *	 11:39am  up 19:34,  4 users,  load average: 0.44, 0.38, 0.08
  *
- *	$Id: get_load.c,v 1.1 1995/03/04 21:32:24 vwelch Exp $
+ *	$Id: get_load.c,v 1.2 1995/03/23 02:15:27 vwelch Exp $
  */
 
 #include <stdio.h>
 #include <string.h>
 #include <sys/wait.h>
 
+
+#ifdef sgi
+static char	*uptime_cmd = "/usr/bsd/uptime";
+#else
 static char	*uptime_cmd = "/usr/ucb/uptime";
+#endif
 
 static char	*uptime_args[] = { "uptime", NULL };
 
