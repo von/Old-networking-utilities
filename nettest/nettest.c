@@ -2,7 +2,7 @@
 static char USMID[] = "@(#)tcp/usr/etc/nettest/nettest.c	61.1	09/13/90 09:04:50";
 */
 
-char *version_str = "$Id: nettest.c,v 1.11 1996/03/24 17:05:44 vwelch Exp $";
+char *version_str = "$Id: nettest.c,v 1.12 1996/04/04 15:21:44 vwelch Exp $";
 
 #include "nettest.h"
 #include <stdlib.h>
@@ -893,9 +893,9 @@ time_struct	*start, *turnaround, *end;
 			   100.0 * total_sms/total_ms,
 			   total_ums/1000.0,
 			   100.0 * total_ums/total_ms,
-			   total_data / (1024.0*(total_ms/1000.0)),
-			   total_data / (128.0*1024.0*(total_ms/1000.0)),
-			   total_data / (125.0*total_ms));
+			   2 * total_data / (1024.0*(total_ms/1000.0)),
+			   2 * total_data / (128.0*1024.0*(total_ms/1000.0)),
+			   2 * total_data / (125.0*total_ms));
 
 	}
 }
