@@ -1,4 +1,4 @@
-char *version_str = "$Id: nettestd.c,v 1.5 1995/06/08 19:52:31 vwelch Exp $";
+char *version_str = "$Id: nettestd.c,v 1.6 1995/06/27 17:36:57 vwelch Exp $";
 
 #include "nettest.h"
 
@@ -310,9 +310,6 @@ register in, out;
 	}
 	*cp = '\0';
 
-	/* DEBUG */
-	fprintf(stderr, "buf =\"%s\"\n", buf);
-
 	/*
 	 *	Check for 'v' termination string which indicates
 	 *	my custom version.
@@ -327,10 +324,6 @@ register in, out;
 			&chunks, &chunksize, &fullbuf,
 			&kbufsize, &tos, &nodelay, &buffer_alignment,
 			&do_load, &client_version);
-
-	/* DEBUG */
-	fprintf(stderr, "buf =\"%s\" client_version=%f %d x %d\n",
-		buf, client_version, chunks, chunksize);
 
 	/*
 	 * If fullbuf is set, allocate a buffer twice as big.  This
