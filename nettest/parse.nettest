@@ -5,7 +5,7 @@
 #
 #	Parse the output of multi_nettest
 #
-#	$Id: parse.nettest,v 1.6 1995/04/17 20:46:59 vwelch Exp $
+#	$Id: parse.nettest,v 1.7 1995/06/06 21:31:09 vwelch Exp $
 #
 ###########################################################################
 
@@ -26,6 +26,11 @@ sub USAGE {
     print "      -h    Display help.\n";
     print "      -k    Toggle buffers in kilobytes (default TRUE).\n";
     print "      -r    Toggle display of read stats (default TRUE).\n";
+    print "      -t <type>\n";
+    print "         Control output type of gnuplot. Default is to X display.\n";
+    print "         Other options are:  ps\n";
+    print "                             pbm (color small)\n";
+    print "                             all\n";
     print "      -w    Toggle display of write stats (default TRUE).\n";
 }
 
@@ -43,9 +48,17 @@ $OUTPUT_READ_STATS = 1;
 $FORMAT = "text";		# xgraph or gnuplot are other options
 $OUTPUT = "default";		# percent is other option
 
+# GNUPLOT output types
+$GNUPLOT_X = 1;
+$GNUPLOT_PS = 2;
+$GNUPLOT_PBM = 4;
+$GNUPLOT_ALL = 7;
+
+$GNUPLOT_TYPE = "x";
+
 ###########################################################################
 
-&Getopts('f:hko:rw');
+&Getopts('f:hko:rt:w');
 
 if (defined($opt_h)) {
     &USAGE();
@@ -70,6 +83,30 @@ if (defined($opt_f)) {
 
 if (defined($opt_o)) {
     $OUTPUT = $opt_o;
+}
+
+
+if (defined($opt_t)) {
+    $GNUPLOT_TYPE = $opt_t;
+}
+
+###########################################################################
+				
+		    
+if (($GNUPLOT_TYPE eq "x") || ($GNUPLOT_TYPE eq "X")) {
+    $GNUPLOT_OUTPUT = $GNUPLOT_X;
+
+} elsif ($GNUPLOT_TYPE eq "ps") {
+    $GNUPLOT_OUTPUT = $GNUPLOT_PS;
+    
+} elsif ($GNUPLOT_TYPE eq "pbm") {
+    $GNUPLOT_OUTPUT = $GNUPLOT_PBM;
+
+} elsif ($GNUPLOT_TYPE eq "all") {
+    $GNUPLOT_OUTPUT = $GNUPLOT_ALL;
+
+} else {
+    print "Unknow GNUPLOT type \"$GNUPLOT_TYPE\". Ignoring.\n";
 }
 
 ###########################################################################
@@ -117,6 +154,7 @@ while(<>) {
 
 	if (/^#destination:/) {
 	    ($FLAK, $REMOTE_HOST) = split;
+	    $REMOTE_HOST =~ s/-hippi//;
 	}
     }
 
@@ -392,13 +430,11 @@ sub OUTPUT_GNUPLOT {
     $WRITE_USR_FILE = "$BASENAME.write.user";
     $WRITE_SYS_FILE = "$BASENAME.write.sys";
 
+    $PLOT_CMD = sprintf("plot \"%s\" title \"Write Avg\", \"%s\" title \"Write Peak\", \"%s\" title \"Read Avg\", \"%s\" title \"Read Peak\"\n",
+			$WRITE_AVG_FILE, $WRITE_PEAK_FILE,
+			$READ_AVG_FILE, $READ_PEAK_FILE);
+
     printf("\n");
-    printf("# Uncomment following two lines to have gnuplot create a pbm file.\n");
-    printf("#set output \"nettest.pbm\"\n");
-    printf("#set terminal pbm color small\n\n");
-    printf("# Uncomment following two lines to have gnuplot create a postscript file.\n");
-    printf("#set output \"nettest.ps\"\n");
-    printf("#set terminal postscript\n\n");
     printf("set title \"%s to %s\"\n", $LOCAL_HOST, $REMOTE_HOST);
     printf("set data style linespoints\n");
     if ($DO_KILOBYTES) {
@@ -406,22 +442,38 @@ sub OUTPUT_GNUPLOT {
     } else {
 	printf("set xlabel \"Buffersize (bytes)\"\n");
     }
-    printf("set label \"$DATA_FILE\" at 50,10\n");
+    printf("set label \"$DATA_FILE\" at 80,80\n");
 
     printf("#\n# For percent comment out next two lines and uncomment following two.\n");
     printf("set ylabel \"Throughput (Mbit/s)\"\n");
-    printf("plot \"%s\" title \"Write Average\", \"%s\" title \"Write Peak\", \"%s\" title \"Read Average\", \"%s\" title \"Read Peak\"\n",
-	   $WRITE_AVG_FILE, $WRITE_PEAK_FILE,
-	   $READ_AVG_FILE, $READ_PEAK_FILE);
-
     
     printf("#set ylabel \"Percent of Total Time\"\n");
-
     printf("#plot \"%s\" title \"Write User\", \"%s\" title \"Write Sys\", \"%s\" title \"Read User\", \"%s\" title \"Read Sys\"\n",
 	   $WRITE_USR_FILE, $WRITE_SYS_FILE,
 	   $READ_USR_FILE, $WRITE_SYS_FILE);
     
-    printf("pause -1 \"Press return to continue...\n");
+    if ($GNUPLOT_OUTPUT & $GNUPLOT_PBM) {
+	printf("#\n");
+	printf("set output \"$LOCAL_HOST-$REMOTE_HOST.pbm\"\n");
+	printf("set terminal pbm color small\n");
+	printf($PLOT_CMD);
+    }
+
+    if ($GNUPLOT_OUTPUT & $GNUPLOT_PS) {
+	printf("#\n");
+	printf("set output \"$LOCAL_HOST-$REMOTE_HOST.ps\"\n");
+	printf("set terminal postscript\n");
+	printf($PLOT_CMD);
+    }
+
+    if ($GNUPLOT_OUTPUT & $GNUPLOT_X) {
+	printf("#\n");
+	printf("set output\n");
+	printf("set terminal x11\n");
+	printf($PLOT_CMD);
+	printf("pause -1 \"Press return to continue...\n");
+    }
+
 
     &CREATE_GNUPLOT_DATA_FILES();
 }
